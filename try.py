@@ -1,40 +1,46 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import logging
-import asyncio
 
-from bitshares.aio import BitShares
-from bitshares.aio.asset import Asset
-from bitshares.aio.amount import Amount
-from bitshares.aio.account import Account
-from bitshares.aio.price import Price, Order
-from bitshares.aio.market import Market
+from bitshares import BitShares
+from bitshares.asset import Asset
+from bitshares.amount import Amount
+from bitshares.account import Account
+from bitshares.price import Price, Order
+from bitshares.market import Market
 
 log = logging.getLogger("grapheneapi")
 log.setLevel(logging.DEBUG)
 
-async def main():
-    bitshares = BitShares(node="wss://node.bitshares.eu", num_retries=-1)
-    await bitshares.connect()
+bitshares = BitShares(node="wss://node.bitshares.eu", num_retries=-1)
+bitshares.connect()
 
-    market = await Market("BTC:BTS", blockchain_instance=bitshares)
-    
-    print("base=%s\n" % market.get("base"))
-    print("quote=%s\n" % market.get("quote"))
-    
-    ticker = await market.ticker()
-    print("lowestAsk=%s\n" % ticker["lowestAsk"])
-    print("highestBid=%s\n" % ticker["highestBid"])
-    
-    volume = await market.volume24h()
-    base = market["base"]["symbol"]
-    quote = market["quote"]["symbol"]
-    
-    print("volume24h %s=%s" %(base,volume[base]))
-    print("volume24h %s=%s" %(quote,volume[quote]))
+assets = set()
+lastAsset = ''
+while True:
+    asset_chunk = bitshares.rpc.list_assets(lastAsset,50)
+    if 1 >= len(asset_chunk):
+        break
+    asset_chunk = [asset['symbol'] for asset in asset_chunk]
+    print(asset_chunk)
+    assets |= set(asset_chunk)
+    lastAsset = asset_chunk[-1]
 
-asyncio.run(main())
+market = Market("BTC:BTS", blockchain_instance=bitshares)
 
+print("base=%s\n" % market.get("base"))
+print("quote=%s\n" % market.get("quote"))
+
+ticker = market.ticker()
+print("lowestAsk=%s\n" % ticker["lowestAsk"])
+print("highestBid=%s\n" % ticker["highestBid"])
+
+volume = market.volume24h()
+base = market["base"]["symbol"]
+quote = market["quote"]["symbol"]
+
+print("volume24h %s=%s" %(base,volume[base]))
+print("volume24h %s=%s" %(quote,volume[quote]))
 
 async def test_orderbook(market, place_order):
     orderbook = await market.orderbook()
