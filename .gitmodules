@@ -1,3 +1,6 @@
 [submodule "python-bitshares"]
 	path = python-bitshares
 	url = https://github.com/bitshares/python-bitshares
+[submodule "python-graphenelib"]
+	path = python-graphenelib
+	url = https://github.com/xeroc/python-graphenelib.git
