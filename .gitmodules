@@ -1,0 +1,3 @@
+[submodule "python-bitshares"]
+	path = python-bitshares
+	url = https://github.com/bitshares/python-bitshares
