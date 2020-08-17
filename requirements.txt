@@ -1,2 +1,3 @@
 bitshares>=0.5.1
 graphenelib>=1.3.4
+datalad>=0.13.1
