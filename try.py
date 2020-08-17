@@ -11,6 +11,33 @@ from bitshares.market import Market
 from bitshares.notify import Notify
 from bitsharesbase.operations import getOperationClassForId,getOperationNameForId
 
+import datalad
+import datalad.api
+datalad.cfg.set('datalad.repo.backend', 'SHA3_512E', where='override') # otherwise it defaults to MD5E
+
+from datetime import datetime
+import os
+
+class history:
+	def __init__(self, market, dataset=None):
+		self.market = market
+		base = market["base"]["symbol"]
+		quote = market["quote"]["symbol"]
+		self.name = base + '-' + quote
+		path = 'data/' + self.name
+		datalad.api.create(path=path, dataset=dataset)
+		self.dataset = datalad.api.Dataset(path)
+		self.dataset.save()
+	def update(self):
+		day = datetime.fromordinal(datetime.now().date().toordinal() - 1)
+		path = self.dataset.path + '/orders/'
+		os.mkdir(path)
+		filepath = path + day + '.csv'
+		with open(filepath, 'w') as f:
+			pass
+
+		
+
 log = logging.getLogger("grapheneapi")
 log.setLevel(logging.DEBUG)
 
