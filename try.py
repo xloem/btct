@@ -8,6 +8,7 @@ from bitshares.amount import Amount
 from bitshares.account import Account
 from bitshares.price import Price, Order
 from bitshares.market import Market
+from bitshares.notify import Notify
 
 log = logging.getLogger("grapheneapi")
 log.setLevel(logging.DEBUG)
@@ -15,16 +16,27 @@ log.setLevel(logging.DEBUG)
 bitshares = BitShares(node="wss://node.bitshares.eu", num_retries=-1)
 bitshares.connect()
 
-assets = set()
-lastAsset = ''
-while True:
-    asset_chunk = bitshares.rpc.list_assets(lastAsset,50)
-    if 1 >= len(asset_chunk):
-        break
-    asset_chunk = [asset['symbol'] for asset in asset_chunk]
-    print(asset_chunk)
-    assets |= set(asset_chunk)
-    lastAsset = asset_chunk[-1]
+def get_all_assets():
+    assets = {}
+    lastAsset = None
+    while True:
+        asset_chunk = bitshares.rpc.list_assets(lastAsset,64)
+        if 1 >= len(asset_chunk):
+            break
+        for asset in asset_chunk:
+            assets[asset['symbol']] = asset
+        lastAsset = asset_chunk[-1]
+
+def on_block(data):
+    print(data)
+
+notify = Notify(bitshares=bitshars, markets=list(), on_block=on_block)
+notify.listen()
+
+
+
+block=bitshares.rpc.get_block(1)
+print(block)
 
 market = Market("BTC:BTS", blockchain_instance=bitshares)
 
