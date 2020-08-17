@@ -57,6 +57,9 @@ def on_tx(data):
                 print("volume24h %s=%s" %(base,volume[base]))
                 print("volume24h %s=%s" %(quote,volume[quote]))
 
+                # default ranges:
+                # stop = datetime.now()
+                # start = stop - timedelta(hours=24)
                 history = market.trades(limit=25,start=None,stop=None)
                 for trade in history:
                     print(trade)
