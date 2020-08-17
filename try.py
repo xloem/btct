@@ -57,6 +57,10 @@ def on_tx(data):
                 print("volume24h %s=%s" %(base,volume[base]))
                 print("volume24h %s=%s" %(quote,volume[quote]))
 
+                history = market.trades(limit=25,start=None,stop=None)
+                for trade in history:
+                    print(trade)
+
 notify = Notify(bitshares=bitshares, markets=list(), on_tx=on_tx)
 notify.listen()
 
