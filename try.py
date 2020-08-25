@@ -23,6 +23,8 @@ import datalad.api
 from datalad.support.locking import lock_if_check_fails
 datalad.cfg.set('datalad.repo.backend', 'SHA3_512E', where='override') # otherwise it defaults to MD5E
 
+from delimitedfile import delimitedfile
+
 from datetime import datetime,timedelta
 import os
 
@@ -88,34 +90,35 @@ class history:
         base = market["base"]["symbol"]
         quote = market["quote"]["symbol"]
         self.name = base + '-' + quote
-        log.warn(self.name)
+        log.warning(self.name)
         path = 'data/' + self.name
         self.files = filebacked(path)
         self.dataset = datalad.api.Dataset(path)
         if not self.dataset.is_installed():
             datalad.api.create(path=path,dataset='.')
             self.dataset.repo.set_gitattributes([
-                ('start', {'annex.largefiles': '(exclude=*)'}),
-                ('end', {'annex.largefiles': '(exclude=*)'}),
+                ('start-seconds', {'annex.largefiles': '(exclude=*)'}),
+                ('start-sequence', {'annex.largefiles': '(exclude=*)'}),
+                ('end-seconds', {'annex.largefiles': '(exclude=*)'}),
+                ('end-sequence', {'annex.largefiles': '(exclude=*)'}),
             ])
             with self.files.lock():
                 self.files['.gitignore'] = 'latest.csv'
         with self.files.lock():
             current_chunk = datechunk(time=datetime.now())
-            end = self.files['end']
+            end = self.files['end-seconds']
             if end != None:
                 chunk = datechunk(id=end)
                 while chunk.id() != current_chunk.id():
                     chunk = chunk.next()
                     self.download_chunk_needs_lock(chunk)
-                chunk = datechunk(id=self.files['start'])
+                chunk = datechunk(id=self.files['start-seconds'])
                 chunk = chunk.previous()
                 self.download_chunk_needs_lock(chunk)
             else:
                 self.download_chunk_needs_lock(current_chunk)
                 self.download_chunk_needs_lock(current_chunk.previous())
         self.dataset.save()
-
     def folder_for_chunk(self, chunk):
         return f'{self.dataset.path}/trades/'
     def filepath_for_chunk(self, chunk):
@@ -126,6 +129,9 @@ class history:
         path = self.folder_for_chunk(chunk)
         os.makedirs(path, exist_ok=True)
         return path + chunk.name() + '.csv'
+    def get(self, chunk):
+        return delimitedfile(self.filepath_for_chunk(chunk))
+
     def download_chunk_needs_lock(self, chunk = datechunk(datetime.now()).previous()):
         today_chunk = datechunk(time=datetime.now())
         starttime = chunk.time
@@ -134,34 +140,37 @@ class history:
         filepath = self.filepath_for_chunk(chunk)
         keepgoing = True
         try:
-            log.warn(f'Writing {filepath} {starttime}-{stoptime}...')
-            with open(filepath, 'w') as f:
-                count = 0
-                last_sequence = None
-                while keepgoing:
-                    # appears to give most recent trades first
-                
-                    history = self.market.trades(limit=1000000,start=starttime,stop=stoptime)
-                    keepgoing = False;
-                    for trade in history:
-                        # trade.value is the base amount
-                        # trade.amount is the quote amount
-                        if last_sequence is not None and trade['sequence'] >= last_sequence:
-                            continue
-                        if trade['time'] < stoptime:
-                            stoptime = trade['time']
-                        f.write(f"{int(trade['time'].timestamp())},{trade['type']},{trade['value']},{trade['amount']},{trade['sequence']}\n")
-                        last_sequence = trade['sequence']
-                        keepgoing = True
-                        count = count + 1
-                    if keepgoing:
-                        f.flush()
-                        log.warn(f'Wrote {count} trades ...')
-            if chunk.id() < today_chunk.id():
-                if not 'start' in self.files or chunk.previous().id() == int(self.files['start']):
-                    self.files['start'] = chunk.id()
-                if not 'end' in self.files or chunk.next().id() == int(self.files['end']):
-                    self.files['end'] = chunk.id()
+            log.warning(f'Writing {filepath} {starttime}-{stoptime}...')
+            if chunk.id() == today_chunk.id():
+                with delimitedfile(filepath) as file:
+                    file.clear()
+                    count = 0
+                    last_sequence = None
+                    while keepgoing:
+                        history = self.market.trades(limit=1000000,start=starttime,stop=stoptime)
+                        keepgoing = False;
+                        for trade in history:
+                            # trade.value is the base amount
+                            # trade.amount is the quote amount
+                            if last_sequence is not None and trade['sequence'] >= last_sequence:
+                                continue
+                            if trade['time'] < stoptime:
+                                stoptime = trade['time']
+                            file.append(f"{int(trade['time'].timestamp())},{trade['type']},{trade['value']},{trade['amount']},{trade['sequence']}")
+                            last_sequence = trade['sequence']
+                            keepgoing = True
+                            count = count + 1
+                        if keepgoing:
+                            log.warning(f'Wrote {count} trades ...')
+                if not 'start-sequence' in self.files:
+                    self.files['start-sequence'] = last_sequence
+            elif chunk.id() < today_chunk.id():
+                # stub
+                if not 'start-seconds' in self.files or chunk.next().id() == int(self.files['start-seconds']):
+                    self.files['start-seconds'] = chunk.id()
+                    self.files['start-sequence'] = last_sequence
+                if not 'end-seconds' in self.files or chunk.previous().id() == int(self.files['end-seconds']):
+                    self.files['end-seconds'] = chunk.id()
             return True
         except FileExistsError:
             return False

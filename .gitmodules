@@ -4,3 +4,6 @@
 [submodule "python-graphenelib"]
 	path = python-graphenelib
 	url = https://github.com/xeroc/python-graphenelib.git
+[submodule "python-delimitedfile"]
+	path = python-delimitedfile
+	url = https://github.com/Community-Maintenance/python-delimitedfile.git
