@@ -1,0 +1,2766 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>hitbtc API by hitbtc-com</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>hitbtc API</h1>
+        <p>We bring cutting-edge technology to the Bitcoin ecosystem</p>
+
+        <p class="view"><a href="https://github.com/hitbtc-com/hitbtc-api">View the Project on GitHub <small>hitbtc-com/hitbtc-api</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/hitbtc-com/hitbtc-api/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/hitbtc-com/hitbtc-api/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/hitbtc-com/hitbtc-api">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a name="hitbtc-api-guide" class="anchor" href="#hitbtc-api-guide"><span class="octicon octicon-link"></span></a>HitBTC API Guide</h1>
+
+<h2>
+<a name="table-of-contents" class="anchor" href="#table-of-contents"><span class="octicon octicon-link"></span></a>Table of contents</h2>
+
+<ul>
+<li>
+<a href="#summary">SUMMARY</a><br>
+— <a href="#cursymbols">Currency symbols</a>
+</li>
+<li>
+<a href="#restful">RESTFUL API</a><br>
+— <a href="#marketrestful">Market data</a><br>
+— <a href="#tradingrestful">Trading</a><br>
+— <a href="#paymentsrestful">Payment</a>
+</li>
+<li>
+<a href="#socketio">SOCKET.IO API</a><br>
+— <a href="#socketio">Market Data</a>
+</li>
+<li>
+<a href="#streaming">STREAMING API</a><br>
+— <a href="#marketstreaming">Market data</a> <br>
+— <a href="#tradingstreaming">Trading</a><br>
+— <a href="#sample">Sample code</a>
+</li>
+</ul>
+
+<h1>
+<a name="summary" class="anchor" href="#summary"><span class="octicon octicon-link"></span></a>
+<a name="summary"></a>Summary</h1>
+
+<p>This document provides the complete reference for <a href="https://hitbtc.com">HitBTC</a> API.</p>
+
+<p>HitBTC API has several interfaces to implement them in a custom software:</p>
+
+<ul>
+<li>
+<b>RESTful API</b> that allows: 
+
+<ul>
+<li>access to the market data: get ticker, order book, trades, etc. See <a href="#marketrestful">Market data RESTful API</a>
+</li>
+<li>performing trading operations: get trading balance, place or cancel orders, get history, etc. See <a href="#tradingrestful">Trading RESTful API</a>
+</li>
+<li>managing funds: get balance of the main account, transfer funds between main and trading accounts, create an outgoing  transactions, etc. See <a href="#paymentsrestful">Payment RESTful API</a>
+</li>
+</ul>
+</li>
+<li>
+<b>socket.io</b> protocol for receiving the market data. socket.io protocol supports WebSocket and xhr-polling  transport. See <a href="#socketio">socket.io Market Data</a>
+</li>
+<li>
+<b>Streaming API</b> based on WebSocket protocol to get an access to: 
+
+<ul>
+<li>market data. See <a href="#marketstreaming">Market data streaming end-point</a><br>
+</li>
+<li>trading operations. See <a href="#tradingstreaming">Trading streaming end-point</a>
+</li>
+</ul>
+</li>
+</ul>
+
+<p>Trading and payment operations require user's authentication: each request or message should have a signature. 
+You should get your API key and Secret key on the <a href="https://hitbtc.com/settings">Settings</a> page. See details in <a href="#authenticationrestful">RESTful API authentication</a> and <a href="#authenticationwebsocket">WebSocket API authentication</a>.</p>
+
+<h3>
+<a name="currency-symbols" class="anchor" href="#currency-symbols"><span class="octicon octicon-link"></span></a>
+<a name="cursymbols"></a>Currency symbols</h3>
+
+<p>The following currency symbols are traded on HitBTC exchange.</p>
+
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Lot size</th>
+<th>Price step</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BTCUSD</td>
+<td>0.01 BTC</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>BTCEUR</td>
+<td>0.01 BTC</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>LTCBTC</td>
+<td>0.1 LTC</td>
+<td>0.00001</td>
+</tr>
+<tr>
+<td>LTCUSD</td>
+<td>0.1 LTC</td>
+<td>0.001</td>
+</tr>
+<tr>
+<td>LTCEUR</td>
+<td>0.1 LTC</td>
+<td>0.001</td>
+</tr>
+<tr>
+<td>DOGEBTC</td>
+<td>1000 DOGE</td>
+<td>0.000000001</td>
+</tr>
+<tr>
+<td>XMRBTC</td>
+<td>0.01 XMR</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>BCNBTC</td>
+<td>100 BCN</td>
+<td>0.000000001</td>
+</tr>
+<tr>
+<td>XDNBTC</td>
+<td>100 XDN</td>
+<td>0.000000001</td>
+</tr>
+</tbody>
+</table>
+
+<p>The actual list of symbols can be obtained by <a href="#symbols">/api/1/public/symbols</a> method.</p>
+
+<p>Size representation:</p>
+
+<ul>
+<li>Size values in streaming messages are represented in lots.</li>
+<li>Size values in RESTful market data are represented in money (e.g. in coins or in USD). </li>
+<li>Size values in RESTful trade are represented in lots (e.g. 1 means 0.01 BTC for BTCUSD)</li>
+</ul>
+
+<h1>
+<a name="restful-api" class="anchor" href="#restful-api"><span class="octicon octicon-link"></span></a>
+<a name="restful"></a>RESTful API</h1>
+
+<p>RESTful API provides the most functional access to HitBTC facilities.
+RESTful API allows: </p>
+
+<ul>
+<li>access to the market data: get ticker, order book, trades, etc. See <a href="#marketrestful">Market data RESTful API</a>
+</li>
+<li>performing trading operations: get trading balance, place or cancel orders, get history, etc. See <a href="#tradingrestful">Trading RESTful API</a>
+</li>
+<li>managing funds: get balance of the main account, transfer funds between main and trading accounts, create an outgoing  transactions, etc. See <a href="#paymentsrestful">Payment RESTful API</a>
+</li>
+</ul>
+
+<p>Endpoint URL: <a href="http://api.hitbtc.com">http://api.hitbtc.com</a>.</p>
+
+<p>HitBTC provides a <b>demo trading</b> option.  You can enable demo mode and acquire demo API keys on the  <a href="https://hitbtc.com/settings">Settings</a> page.<br>Demo endpoint address: <a href="http://demo-api.hitbtc.com">http://demo-api.hitbtc.com</a></p>
+
+<p>Trading and payment operations require <a href="#authentication">authentication</a>. See also <a href="#errors">error codes</a> and <a href="#reports">reports representing order status changes</a>.</p>
+
+<h2>
+<a name="market-data-restful-api" class="anchor" href="#market-data-restful-api"><span class="octicon octicon-link"></span></a>
+<a name="marketrestful"></a>Market data RESTful API</h2>
+
+<p>RESTful API provides access to the market data with following methods:</p>
+
+<ul>
+<li>get the timestamp- <a href="#time">/api/1/public/time</a>
+</li>
+<li>get the list of symbols - <a href="#symbols">/api/1/public/symbols</a>
+</li>
+<li>get the ticker for specified symbol - <a href="#ticker">/api/1/public/:symbol/ticker</a>
+</li>
+<li>get all tickers - <a href="#alltickers">/api/1/public/ticker</a>
+</li>
+<li>get the order book for specified symbol - <a href="#orderbook">/api/1/public/:symbol/orderbook</a>
+</li>
+<li>get individual trades data for specified symbol - <a href="#trades">/api/1/public/:symbol/trades</a>
+</li>
+<li>get recent trades for specified symbol  - <a href="#recenttrades">/api/1/public/:symbol/trades/recent</a>
+</li>
+</ul>
+
+<h3>
+<a name="api1publictime" class="anchor" href="#api1publictime"><span class="octicon octicon-link"></span></a>
+<a name="time"></a>/api/1/public/time</h3>
+
+<p><i>Summary:</i> returns the server time in UNIX timestamp format</p>
+
+<p><i>Request:</i> <code>GET /api/1/public/time</code></p>
+
+<p><i>Example:</i> <code>/api/1/public/time</code></p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1393492619000</span>
+<span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1publicsymbols" class="anchor" href="#api1publicsymbols"><span class="octicon octicon-link"></span></a>
+<a name="symbols"></a>/api/1/public/symbols</h3>
+
+<p><i>Summary:</i> Simbols returns the actual list of currency symbols traded on HitBTC exchange with their characteristics:</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>symbol</td>
+<td>Symbol name</td>
+</tr>
+<tr>
+<td>step</td>
+<td>Price step parameter</td>
+</tr>
+<tr>
+<td>lot</td>
+<td>Lot size parameter</td>
+</tr>
+<tr>
+<td>currency</td>
+<td>Value of this symbol</td>
+</tr>
+<tr>
+<td>commodity</td>
+<td>Second value of this symbol</td>
+</tr>
+<tr>
+<td>takeLiquidityRate</td>
+<td>Liquidity taker fee</td>
+</tr>
+<tr>
+<td>provideLiquidityRate</td>
+<td>Liquidity provider rebate</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Request:</i> <code>GET /api/1/public/symbols</code></p>
+
+<p><i>Example:</i> <code>/api/1/public/symbols</code></p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"symbols"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+            <span class="nt">"step"</span><span class="p">:</span> <span class="s2">"0.01"</span><span class="p">,</span>
+            <span class="nt">"lot"</span><span class="p">:</span> <span class="s2">"0.01"</span><span class="p">,</span>
+            <span class="nt">"currency"</span><span class="p">:</span> <span class="s2">"USD"</span><span class="p">,</span>
+            <span class="nt">"commodity"</span><span class="p">:</span> <span class="s2">"BTC"</span><span class="p">,</span>
+            <span class="nt">"takeLiquidityRate"</span><span class="p">:</span> <span class="s2">"0.002"</span><span class="p">,</span>
+            <span class="nt">"provideLiquidityRate"</span><span class="p">:</span> <span class="s2">"0.002"</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCEUR"</span><span class="p">,</span>
+            <span class="nt">"step"</span><span class="p">:</span> <span class="s2">"0.01"</span><span class="p">,</span>
+            <span class="nt">"lot"</span><span class="p">:</span> <span class="s2">"0.01"</span><span class="p">,</span>
+            <span class="nt">"currency"</span><span class="p">:</span> <span class="s2">"EUR"</span><span class="p">,</span>
+            <span class="nt">"commodity"</span><span class="p">:</span> <span class="s2">"BTC"</span><span class="p">,</span>
+            <span class="nt">"takeLiquidityRate"</span><span class="p">:</span> <span class="s2">"0.002"</span><span class="p">,</span>
+            <span class="nt">"provideLiquidityRate"</span><span class="p">:</span> <span class="s2">"0.002"</span>
+        <span class="p">},</span>
+        <span class="err">...</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1publicsymbolticker" class="anchor" href="#api1publicsymbolticker"><span class="octicon octicon-link"></span></a>
+<a name="ticker"></a>/api/1/public/:symbol/ticker</h3>
+
+<p><i>Summary:</i> returns the actual data on exchange rates of the specified cryptocurrency.</p>
+
+<p>Sample usage at HitBTC site: see <a href="https://hitbtc.com/market-overview">https://hitbtc.com/market-overview</a> for each line.</p>
+
+<p><i>Request:</i> <code>GET /api/1/public/:symbol/ticker</code>
+  where <code>:symbol</code> is a currency symbol traded on HitBTC exchange (see <a href="#cursymbols">Currency symbols</a>)</p>
+
+<p><i>Example:</i> <code>/api/1/public/BTCUSD/ticker</code></p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"last"</span><span class="p">:</span> <span class="s2">"550.73"</span><span class="p">,</span>
+    <span class="nt">"bid"</span><span class="p">:</span> <span class="s2">"549.56"</span><span class="p">,</span>
+    <span class="nt">"ask"</span><span class="p">:</span> <span class="s2">"554.12"</span><span class="p">,</span>
+    <span class="nt">"high"</span><span class="p">:</span> <span class="s2">"600.1"</span><span class="p">,</span>
+    <span class="nt">"low"</span><span class="p">:</span> <span class="s2">"400.7"</span><span class="p">,</span>
+    <span class="nt">"volume"</span><span class="p">:</span> <span class="s2">"567.9"</span><span class="p">,</span>
+    <span class="nt">"open"</span><span class="p">:</span> <span class="s2">"449.73"</span><span class="p">,</span>
+    <span class="nt">"volume_quote"</span><span class="p">:</span> <span class="s2">"289002.81"</span><span class="p">,</span>
+    <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1393492619000</span>
+
+<span class="p">}</span>
+</pre></div>
+
+<p>The following fields are used in the <code>ticker</code> object:</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>last</td>
+<td>Last price</td>
+</tr>
+<tr>
+<td>bid</td>
+<td>Highest buy order</td>
+</tr>
+<tr>
+<td>ask</td>
+<td>Lowest sell order</td>
+</tr>
+<tr>
+<td>high</td>
+<td>Highest trade price per last 24h + last incomplete minute</td>
+</tr>
+<tr>
+<td>low</td>
+<td>Lowest trade price per last 24h + last incomplete minute</td>
+</tr>
+<tr>
+<td>volume</td>
+<td>Volume per last 24h + last incomplete minute</td>
+</tr>
+<tr>
+<td>open</td>
+<td>Price in which instrument open</td>
+</tr>
+<tr>
+<td>volume_quote</td>
+<td>Volume in second currency per last 24h + last incomplete minute</td>
+</tr>
+<tr>
+<td>timestamp</td>
+<td>Server time in UNIX timestamp format</td>
+</tr>
+</tbody>
+</table>
+
+<h3>
+<a name="api1publicticker" class="anchor" href="#api1publicticker"><span class="octicon octicon-link"></span></a>
+<a name="alltickers"></a>/api/1/public/ticker</h3>
+
+<p><i>Summary:</i> returns the actual data on exchange rates for all traded cryptocurrencies - all tickers.</p>
+
+<p><i>Example:</i> <code>/api/1/public/ticker</code></p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"BCNBTC"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">"ask"</span><span class="p">:</span> <span class="s2">"0.000000039"</span><span class="p">,</span>
+        <span class="nt">"bid"</span><span class="p">:</span> <span class="s2">"0.000000036"</span><span class="p">,</span>
+        <span class="nt">"last"</span><span class="p">:</span> <span class="s2">"0.000000037"</span><span class="p">,</span>
+        <span class="nt">"low"</span><span class="p">:</span> <span class="s2">"0.000000035"</span><span class="p">,</span>
+        <span class="nt">"high"</span><span class="p">:</span> <span class="s2">"0.000000048"</span><span class="p">,</span>
+        <span class="nt">"volume"</span><span class="p">:</span> <span class="s2">"580790000"</span><span class="p">,</span>
+        <span class="nt">"volume_quote"</span><span class="p">:</span> <span class="s2">"26.000000000"</span><span class="p">,</span>
+        <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1409907025743</span>
+    <span class="p">},</span>
+    <span class="nt">"BTCEUR"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">"ask"</span><span class="p">:</span> <span class="s2">"378.23"</span><span class="p">,</span>
+        <span class="nt">"bid"</span><span class="p">:</span> <span class="s2">"376.28"</span><span class="p">,</span>
+        <span class="nt">"last"</span><span class="p">:</span> <span class="s2">"376.29"</span><span class="p">,</span>
+        <span class="nt">"low"</span><span class="p">:</span> <span class="s2">"362.48"</span><span class="p">,</span>
+        <span class="nt">"high"</span><span class="p">:</span> <span class="s2">"382.13"</span><span class="p">,</span>
+        <span class="nt">"volume"</span><span class="p">:</span> <span class="s2">"961.71"</span><span class="p">,</span>
+        <span class="nt">"volume_quote"</span><span class="p">:</span> <span class="s2">"361328.13"</span><span class="p">,</span>
+        <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1409907025743</span>
+    <span class="p">},</span>
+    <span class="nt">"BTCUSD"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">"ask"</span><span class="p">:</span> <span class="s2">"489.26"</span><span class="p">,</span>
+        <span class="nt">"bid"</span><span class="p">:</span> <span class="s2">"488.08"</span><span class="p">,</span>
+        <span class="nt">"last"</span><span class="p">:</span> <span class="s2">"489.31"</span><span class="p">,</span>
+        <span class="nt">"low"</span><span class="p">:</span> <span class="s2">"478.01"</span><span class="p">,</span>
+        <span class="nt">"high"</span><span class="p">:</span> <span class="s2">"496.23"</span><span class="p">,</span>
+        <span class="nt">"volume"</span><span class="p">:</span> <span class="s2">"404.20"</span><span class="p">,</span>
+        <span class="nt">"volume_quote"</span><span class="p">:</span> <span class="s2">"197735.83"</span><span class="p">,</span>
+        <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1409907025743</span>
+    <span class="p">}</span>
+    <span class="err">....</span>
+<span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1publicsymbolorderbook" class="anchor" href="#api1publicsymbolorderbook"><span class="octicon octicon-link"></span></a>
+<a name="orderbook"></a>/api/1/public/:symbol/orderbook</h3>
+
+<p><i>Summary:</i> returns a list of open orders for specified currency symbol: their prices and sizes.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/terminal">https://hitbtc.com/terminal</a>, <b>Order book</b> tab.</p>
+
+<p><i>Request:</i> <code>GET /api/1/public/:symbol/orderbook</code>
+  where <code>:symbol</code> is a currency symbol traded on HitBTC exchange (see <a href="#cursymbols">Currency symbols</a>)</p>
+
+<p><i>Parameters:</i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>format_price</code></td>
+<td>No</td>
+<td>
+<code>string</code> or <code>number</code>
+</td>
+<td>Format of prices returned: as a string (default) or as a number</td>
+</tr>
+<tr>
+<td><code>format_amount</code></td>
+<td>No</td>
+<td>
+<code>string</code> or <code>number</code>
+</td>
+<td>Format of amount returned: as a string (default) or as a number</td>
+</tr>
+<tr>
+<td><code>format_amount_unit</code></td>
+<td>No</td>
+<td>
+<code>currency</code> or <code>lot</code>
+</td>
+<td>Units of amount returned: in currency units (default) or in lots</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Alias:</i> <code>/api/1/request/:symbol/orderbook.json</code> -&gt; <code>/api/1/public/:symbol/orderbook?format_price=number&amp;format_amount=number</code></p>
+
+<p><i>Example:</i> <code>/api/1/public/BTCUSD/orderbook</code></p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"asks"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">[</span> <span class="s2">"405.71"</span><span class="p">,</span> <span class="s2">"0.09"</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="s2">"406.65"</span><span class="p">,</span> <span class="s2">"0.06"</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="s2">"409.51"</span><span class="p">,</span> <span class="s2">"0.15"</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="s2">"413.93"</span><span class="p">,</span> <span class="s2">"51.6"</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="s2">"414.59"</span><span class="p">,</span> <span class="s2">"47.1"</span> <span class="p">]</span>
+    <span class="p">],</span>
+    <span class="nt">"bids"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">[</span> <span class="s2">"398.3"</span><span class="p">,</span> <span class="s2">"0.15"</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="s2">"396.99"</span><span class="p">,</span> <span class="s2">"0.13"</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="s2">"395"</span><span class="p">,</span> <span class="s2">"0.5"</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="s2">"391.93"</span><span class="p">,</span> <span class="s2">"42.4"</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="s2">"383.67"</span><span class="p">,</span> <span class="s2">"145.4"</span> <span class="p">]</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+
+<p><i>Example:</i> <code>/api/1/public/BTCUSD/orderbook?format_price=number&amp;format_amount=number</code></p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"asks"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">[</span> <span class="mf">405.71</span><span class="p">,</span> <span class="mf">0.09</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mf">406.65</span><span class="p">,</span> <span class="mf">0.06</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mf">409.51</span><span class="p">,</span> <span class="mf">0.15</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mf">413.93</span><span class="p">,</span> <span class="mf">51.6</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mf">414.59</span><span class="p">,</span> <span class="mf">47.1</span> <span class="p">]</span>
+    <span class="p">],</span>
+    <span class="nt">"bids"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">[</span> <span class="mf">398.3</span><span class="p">,</span> <span class="mf">0.15</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mf">396.99</span><span class="p">,</span> <span class="mf">0.13</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mi">395</span><span class="p">,</span> <span class="mf">0.5</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mf">391.93</span><span class="p">,</span> <span class="mf">42.4</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mf">383.67</span><span class="p">,</span> <span class="mf">145.4</span> <span class="p">]</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1publicsymboltrades" class="anchor" href="#api1publicsymboltrades"><span class="octicon octicon-link"></span></a>
+<a name="trades"></a>/api/1/public/:symbol/trades</h3>
+
+<p><i>Summary:</i> returns data on trades for specified currency symbol in specified ID or timestamp interval.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/terminal">https://hitbtc.com/terminal</a>, <b>Market trades</b> tab.</p>
+
+<p><i>Request:</i> <code>GET /api/1/public/:symbol/trades</code>
+  where <code>:symbol</code> is a currency symbol traded on HitBTC exchange (see <a href="#cursymbols">Currency symbols</a>)</p>
+
+<p><i>Parameters:</i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Reqired</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>from</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Returns trades with <code>trade_id</code> &gt; specified <code>trade_id</code> (if <code>by=trade_id</code>) or returns trades with <code>timestamp</code> &gt;= specified <code>timestamp</code> (if <code>by=ts</code>)</td>
+</tr>
+<tr>
+<td><code>till</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Returns trades with <code>trade_id</code> &lt; specified <code>trade_id</code> (if <code>by=trade_id</code>) or returns trades with <code>timestamp</code> &lt; specified <code>timestamp</code> (if <code>by=ts</code>)</td>
+</tr>
+<tr>
+<td><code>by</code></td>
+<td>Yes</td>
+<td>
+<code>trade_id</code> or <code>ts</code>
+</td>
+<td>Selects if filtering and sorting is performed by trade_id or by timestamp</td>
+</tr>
+<tr>
+<td><code>sort</code></td>
+<td>No</td>
+<td>
+<code>asc</code> or <code>desc</code>
+</td>
+<td>Trades are sorted ascending (default) or descending</td>
+</tr>
+<tr>
+<td><code>start_index</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Start index for the query, zero-based</td>
+</tr>
+<tr>
+<td><code>max_results</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Maximum quantity of returned items, at most 1000</td>
+</tr>
+<tr>
+<td><code>format_item</code></td>
+<td>No</td>
+<td>
+<code>array</code> or <code>object</code>
+</td>
+<td>Format of items returned: as an array (default) or as a list of objects</td>
+</tr>
+<tr>
+<td><code>format_price</code></td>
+<td>No</td>
+<td>
+<code>string</code> or <code>number</code>
+</td>
+<td>Format of prices returned: as a string (default) or as a number</td>
+</tr>
+<tr>
+<td><code>format_amount</code></td>
+<td>No</td>
+<td>
+<code>string</code> or <code>number</code>
+</td>
+<td>Format of amount returned: as a string (default) or as a number</td>
+</tr>
+<tr>
+<td><code>format_amount_unit</code></td>
+<td>No</td>
+<td>
+<code>currency</code> or <code>lot</code>
+</td>
+<td>Units of amount returned: in currency units (default) or in lots</td>
+</tr>
+<tr>
+<td><code>format_tid</code></td>
+<td>No</td>
+<td>
+<code>string</code> or <code>number</code>
+</td>
+<td>Format of trade ID returned: as a string or as a number (default)</td>
+</tr>
+<tr>
+<td><code>format_timestamp</code></td>
+<td>No</td>
+<td>
+<code>millisecond</code> or <code>second</code>
+</td>
+<td>Format of trade timestamp returned: in milliseconds (default) or in seconds</td>
+</tr>
+<tr>
+<td><code>format_wrap</code></td>
+<td>No</td>
+<td>
+<code>true</code> or <code>false</code>
+</td>
+<td>Selects if the line wrappnig is used in item returned. Default value - <code>true</code>
+</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>No</td>
+<td>
+<code>true</code> or <code>false</code>
+</td>
+<td>Selects if the side of a trade is returned</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Alias:</i></p>
+
+<pre><code>/api/1/request/:symbol/trades.json?since=&lt;trade_id&gt; -&gt; /api/1/public/:symbol/trades?from=&lt;trade_id&gt;&amp;by=trade_id&amp;start_index=0&amp;format_numbers=number&amp;format_tradeid=string&amp;format_objects=object&amp;format_timestamp=second
+</code></pre>
+
+<p><i>Example:</i></p>
+
+<pre><code>/api/1/public/BTCUSD/trades?from=0&amp;by=trade_id&amp;sort=desc&amp;start_index=0&amp;max_results=100
+</code></pre>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"trades"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">[</span> <span class="mi">3814483</span><span class="p">,</span> <span class="s2">"575.64"</span><span class="p">,</span> <span class="s2">"0.02"</span><span class="p">,</span> <span class="mi">1393492619000</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mi">3814482</span><span class="p">,</span> <span class="s2">"574.3"</span><span class="p">,</span> <span class="s2">"0.12"</span><span class="p">,</span> <span class="mi">1393492619000</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mi">3814481</span><span class="p">,</span> <span class="s2">"573.67"</span><span class="p">,</span> <span class="s2">"3.8"</span><span class="p">,</span> <span class="mi">1393492619000</span> <span class="p">],</span>
+        <span class="p">[</span> <span class="mi">3814479</span><span class="p">,</span> <span class="s2">"571"</span><span class="p">,</span> <span class="s2">"0.01"</span><span class="p">,</span> <span class="mi">1393492619000</span> <span class="p">],</span>
+        <span class="err">...</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+
+<p><i>Example:</i></p>
+
+<pre><code>/api/1/public/BTCUSD/trades?from=0&amp;by=trade_id&amp;sort=desc&amp;start_index=0&amp;max_results=100&amp;format_item=object&amp;format_price=number&amp;format_amount=number&amp;format_tid=string&amp;format_timestamp=second&amp;format_wrap=false
+</code></pre>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">[</span>
+    <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span> <span class="mi">1393492619</span><span class="p">,</span> <span class="nt">"price"</span><span class="p">:</span> <span class="mf">575.64</span><span class="p">,</span> <span class="nt">"amount"</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">,</span> <span class="nt">"tid"</span><span class="p">:</span> <span class="s2">"3814483"</span><span class="p">},</span>
+    <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span> <span class="mi">1393492619</span><span class="p">,</span> <span class="nt">"price"</span><span class="p">:</span> <span class="mf">574.3</span><span class="p">,</span> <span class="nt">"amount"</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span> <span class="nt">"tid"</span><span class="p">:</span> <span class="s2">"3814482"</span><span class="p">},</span>
+    <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span> <span class="mi">1393492619</span><span class="p">,</span> <span class="nt">"price"</span><span class="p">:</span> <span class="mf">573.67</span><span class="p">,</span> <span class="nt">"amount"</span><span class="p">:</span> <span class="mf">3.8</span><span class="p">,</span> <span class="nt">"tid"</span><span class="p">:</span> <span class="s2">"3814481"</span><span class="p">},</span>
+    <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span> <span class="mi">1393492619</span><span class="p">,</span> <span class="nt">"price"</span><span class="p">:</span> <span class="mi">571</span><span class="p">,</span> <span class="nt">"amount"</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span> <span class="nt">"tid"</span><span class="p">:</span> <span class="s2">"3814479"</span><span class="p">},</span>
+    <span class="err">...</span>
+<span class="p">]</span>
+</pre></div>
+
+<h3>
+<a name="api1publicsymboltradesrecent" class="anchor" href="#api1publicsymboltradesrecent"><span class="octicon octicon-link"></span></a>
+<a name="recenttrades"></a>/api/1/public/:symbol/trades/recent</h3>
+
+<p><i>Summary:</i> returns recent trades for the specified currency symbol.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/terminal">https://hitbtc.com/terminal</a>, <b>Market trades</b> tab. Select the currency pair at top of the tab.</p>
+
+<p><i>Request:</i> <code>/api/1/public/:symbol/trades/recent</code>
+  where <code>:symbol</code> is a currency symbol traded on HitBTC exchange (see <a href="#cursymbols">Currency symbols</a>)</p>
+
+<p><i>Parameters:</i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>max_results</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Maximum quantity of returned results, at most 1000</td>
+</tr>
+<tr>
+<td><code>format_item</code></td>
+<td>No</td>
+<td>
+<code>array</code> or <code>object</code>
+</td>
+<td>Format of items returned: as an array (default) or as a list of objects</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>No</td>
+<td>
+<code>true</code> or <code>false</code>
+</td>
+<td>Selects if the side of a trade is returned</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example:</i> </p>
+
+<pre><code>/api/1/public/LTCEUR/trades/recent?max_results=100&amp;format_item=object
+</code></pre>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"trades"</span><span class="p">:[</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045690003</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"442.12"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.09"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413901</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045690003</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"442.02"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.60"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413900</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045690003</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"441.57"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.19"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413899</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045635556</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"442.00"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.42"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413889</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045635556</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"441.59"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.19"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413888</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045635556</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"441.59"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.39"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413887</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045621329</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"442.00"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.01"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413882</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045621329</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"442.00"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.32"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413881</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045621329</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"441.57"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.28"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413880</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"date"</span><span class="p">:</span><span class="mi">1411045621329</span><span class="p">,</span><span class="nt">"price"</span><span class="p">:</span><span class="s2">"441.56"</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="s2">"0.38"</span><span class="p">,</span><span class="nt">"tid"</span><span class="p">:</span><span class="mi">1413879</span><span class="p">,</span><span class="nt">"side"</span><span class="p">:</span><span class="s2">"buy"</span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+
+<h2>
+<a name="trading-restful-api" class="anchor" href="#trading-restful-api"><span class="octicon octicon-link"></span></a>
+<a name="tradingrestful"></a>Trading RESTful API</h2>
+
+<p>RESTful API allows to perform trading operations with the following methods:</p>
+
+<ul>
+<li>get the trading balance - <a href="#tradingbalance">/api/1/trading/time</a>
+</li>
+<li>get all active orders  - <a href="#active">/api/1/trading/active</a>
+</li>
+<li>place a new order - <a href="#neworder">/api/1/trading/new_order</a>
+</li>
+<li>cancel an order - <a href="#cancelorder">/api/1/trading/cancel_order</a>
+</li>
+<li>get user's recent orders - <a href="#recentorders">/api/1/trading/recent</a>
+</li>
+<li>get user's trading history - <a href="#usertrades">/api/1/trading/trades</a>
+</li>
+</ul>
+
+<p>Trading operations require <a href="#authentication">authentication</a>.</p>
+
+<p><a href="#errors">Error codes</a> and <a href="#reports">reports representing order status changes</a> are described below.</p>
+
+<h3>
+<a name="authentication" class="anchor" href="#authentication"><span class="octicon octicon-link"></span></a>
+<a name="authenticationrestful"></a>Authentication</h3>
+
+<p>RESTful Trading API requires HMAC-SHA512 signatures for each request.</p>
+
+<p>To use this API endpoint you should get your API key and Secret key from the <a href="https://hitbtc.com/settings">Settings</a> page. </p>
+
+<p>Each request should include the following parameters:</p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nonce</code></td>
+<td>Yes</td>
+<td>query string parameter, less than (2^53-1)</td>
+<td>Unique monotonous number that should be generated on the client. Hint: use millisecond or microsecond timestamp</td>
+</tr>
+<tr>
+<td><code>apikey</code></td>
+<td>Yes</td>
+<td>query string parameter</td>
+<td>API key from <a href="https://hitbtc.com/settings">Settings</a> page</td>
+</tr>
+<tr>
+<td><code>signature</code></td>
+<td>Yes</td>
+<td>
+<em>lower-case</em> hex representation of hmac-sha512 of concatenated <code>uri</code> and <code>postData</code>
+</td>
+<td>This parameter should be added as a HTTP header <code>X-Signature</code>
+</td>
+</tr>
+</tbody>
+</table>
+
+<p>Signature generation pseudo-code:</p>
+
+<pre><code>uri = path + '?' + query (example: /api/1/trading/orders/active?nonce=1395049771755&amp;apikey=f6ab189hd7a2007e01d95667de3c493d&amp;symbols=BTCUSD)
+message = uri + postData
+signature = lower_case(hex(hmac_sha512(message, secret_key)))
+</code></pre>
+
+<p>Javascript code (example):</p>
+
+<div class="highlight highlight-js"><pre>   <span class="kd">var</span> <span class="nx">crypto</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">'crypto'</span><span class="p">);</span>
+
+   <span class="p">...</span>
+
+   <span class="kd">var</span> <span class="nx">signature</span> <span class="o">=</span> <span class="nx">crypto</span><span class="p">.</span><span class="nx">createHmac</span><span class="p">(</span><span class="s1">'sha512'</span><span class="p">,</span> <span class="nx">secretKey</span><span class="p">).</span><span class="nx">update</span><span class="p">(</span><span class="nx">message</span><span class="p">).</span><span class="nx">digest</span><span class="p">(</span><span class="s1">'hex'</span><span class="p">);</span>
+</pre></div>
+
+<p>Useful examples provided by the community:</p>
+
+<ul>
+<li>C# example code: <a href="https://gist.github.com/hitbtc-com/9808530">https://gist.github.com/hitbtc-com/9808530</a>
+</li>
+<li>PHP example code: <a href="https://gist.github.com/hitbtc-com/10885873">https://gist.github.com/hitbtc-com/10885873</a> </li>
+</ul>
+
+<h3>
+<a name="error-codes" class="anchor" href="#error-codes"><span class="octicon octicon-link"></span></a>
+<a name="errors"></a>Error codes</h3>
+
+<p>Trading RESTful API can return the following errors:</p>
+
+<table>
+<thead>
+<tr>
+<th>HTTP code</th>
+<th>Text</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>403</td>
+<td>Invalid API key</td>
+<td>API key doesn't exist or API key is currently used on another endpoint (max last 15 min)</td>
+</tr>
+<tr>
+<td>403</td>
+<td>Nonce has been used</td>
+<td>Nonce is not monotonous</td>
+</tr>
+<tr>
+<td>403</td>
+<td>Nonce is not valid</td>
+<td>Too big number or not a number</td>
+</tr>
+<tr>
+<td>403</td>
+<td>Wrong signature</td>
+<td>Specified signature is not correct</td>
+</tr>
+</tbody>
+</table>
+
+<h3>
+<a name="execution-reports" class="anchor" href="#execution-reports"><span class="octicon octicon-link"></span></a>
+<a name="reports"></a>Execution reports</h3>
+
+<p>The API uses <code>ExecutionReport</code> as an object that represents change of order status.</p>
+
+<p>The following fields are used in <code>ExecutionReport</code> object:</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>orderId</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>Order ID on the Exchange</td>
+</tr>
+<tr>
+<td><code>clientOrderId</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>
+<code>clientOrderId</code> sent in <code>NewOrder</code> message (see <a href="#neworder">/api/1/trading/new_order</a>)</td>
+</tr>
+<tr>
+<td><code>execReportType</code></td>
+<td>Yes</td>
+<td>
+<code>new</code> <br> <code>canceled</code> <br> <code>rejected</code> <br> <code>expired</code> <br> <code>trade</code> <br> <code>status</code>
+</td>
+<td>Execution report type</td>
+</tr>
+<tr>
+<td><code>orderStatus</code></td>
+<td>Yes</td>
+<td>
+<code>new</code> <br> <code>partiallyFilled</code> <br> <code>filled</code> <br> <code>canceled</code> <br> <code>rejected</code> <br> <code>expired</code>
+</td>
+<td>Order status</td>
+</tr>
+<tr>
+<td><code>orderRejectReason</code></td>
+<td>Yes - for orders in <code>rejected</code> state</td>
+<td>
+<code>unknownSymbol</code> <br> <code>exchangeClosed</code> <br><code>orderExceedsLimit</code> <br> <code>unknownOrder</code> <br> <code>duplicateOrder</code> <br> <code>unsupportedOrder</code> <br> <code>unknownAccount</code> <br> <code>other</code>
+</td>
+<td>Reason of rejection. Relevant only for orders in rejected state</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>Yes</td>
+<td>string, e.g. <code>BTCUSD</code>
+</td>
+<td>Currency symbol traded on HitBTC exchange (see <a href="#cursymbols">Currency symbols</a>)</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>Yes</td>
+<td>
+<code>buy</code> or <code>sell</code>
+</td>
+<td>Side of a trade</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>No</td>
+<td>integer</td>
+<td>UTC timestamp in milliseconds</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>No</td>
+<td>decimal</td>
+<td>Price of an order</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Order quantity in lots</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>Yes</td>
+<td><code>limit</code></td>
+<td>Type of an order. Only <code>limit</code> orders are currently supported</td>
+</tr>
+<tr>
+<td><code>timeInForce</code></td>
+<td>Yes</td>
+<td>
+<code>GTC</code> - Good-Til-Canceled <br><code>IOC</code> - Immediate-Or-Cancel<br><code>FOK</code> - Fill-Or-Kill<br><code>DAY</code> - day orders&lt;</td>
+<td>Time in force</td>
+</tr>
+<tr>
+<td><code>tradeId</code></td>
+<td>Yes - for trades</td>
+<td>integer</td>
+<td>Trade ID on the exchange</td>
+</tr>
+<tr>
+<td><code>lastQuantity</code></td>
+<td>Yes - for trades</td>
+<td>integer</td>
+<td>Last quantity</td>
+</tr>
+<tr>
+<td><code>lastPrice</code></td>
+<td>Yes - for trades</td>
+<td>decimal</td>
+<td>Last price</td>
+</tr>
+<tr>
+<td><code>leavesQuantity</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Leaves quantity</td>
+</tr>
+<tr>
+<td><code>cumQuantity</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Cumulative quantity</td>
+</tr>
+<tr>
+<td><code>averagePrice</code></td>
+<td>No</td>
+<td>decimal</td>
+<td>Average price. Equals 0 if <code>cumQuantity</code>=0</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span> <span class="nt">"ExecutionReport"</span><span class="p">:</span> <span class="p">{</span> 
+   <span class="nt">"orderId"</span><span class="p">:</span> <span class="s2">"5852103"</span><span class="p">,</span>
+   <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"11111112"</span><span class="p">,</span>
+   <span class="nt">"execReportType"</span><span class="p">:</span> <span class="s2">"new"</span><span class="p">,</span>
+   <span class="nt">"orderStatus"</span><span class="p">:</span> <span class="s2">"new"</span><span class="p">,</span>
+   <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+   <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span><span class="p">,</span>
+   <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1395236779235</span><span class="p">,</span>
+   <span class="nt">"price"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+   <span class="nt">"quantity"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+   <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"limit"</span><span class="p">,</span>
+   <span class="nt">"timeInForce"</span><span class="p">:</span> <span class="s2">"GTC"</span><span class="p">,</span>
+   <span class="nt">"lastQuantity"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+   <span class="nt">"lastPrice"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+   <span class="nt">"leavesQuantity"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+   <span class="nt">"cumQuantity"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+   <span class="nt">"averagePrice"</span><span class="p">:</span> <span class="mi">0</span> 
+<span class="p">}</span> <span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1tradingbalance" class="anchor" href="#api1tradingbalance"><span class="octicon octicon-link"></span></a>
+<a name="tradingbalance"></a>/api/1/trading/balance</h3>
+
+<p><i>Summary:</i> returns trading balance.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/terminal">https://hitbtc.com/terminal</a>, the upper panel, <i>Trading</i> line. The black number displays total trade balance of the currency (<code>cash</code> parameter), the gray number is amount reserved against unexecuted orders and unfinished transactions (<code>reserved</code> parameter).</p>
+
+<p><i>Request:</i> <code>GET /api/1/trading/balance</code></p>
+
+<p><i><i>Parameters:</i></i> no parameters</p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"balance"</span><span class="p">:</span> <span class="p">[</span>
+  <span class="p">{</span><span class="nt">"currency_code"</span><span class="p">:</span> <span class="s2">"BTC"</span><span class="p">,</span><span class="nt">"cash"</span><span class="p">:</span> <span class="mf">0.045457701</span><span class="p">,</span><span class="nt">"reserved"</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"currency_code"</span><span class="p">:</span> <span class="s2">"EUR"</span><span class="p">,</span><span class="nt">"cash"</span><span class="p">:</span> <span class="mf">0.0445544</span><span class="p">,</span><span class="nt">"reserved"</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"currency_code"</span><span class="p">:</span> <span class="s2">"LTC"</span><span class="p">,</span><span class="nt">"cash"</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span><span class="nt">"reserved"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">},</span>
+  <span class="p">{</span><span class="nt">"currency_code"</span><span class="p">:</span> <span class="s2">"USD"</span><span class="p">,</span><span class="nt">"cash"</span><span class="p">:</span> <span class="mf">2.9415029</span><span class="p">,</span><span class="nt">"reserved"</span><span class="p">:</span> <span class="mf">1.001</span><span class="p">}</span>
+<span class="p">]}</span>
+</pre></div>
+
+<h3>
+<a name="api1tradingordersactive" class="anchor" href="#api1tradingordersactive"><span class="octicon octicon-link"></span></a>
+<a name="active"></a>/api/1/trading/orders/active</h3>
+
+<p><i>Summary:</i> returns all orders in status <code>new</code> or <code>partiallyFilled</code>.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/terminal">https://hitbtc.com/terminal</a>, <b>My orders</b> tab, <b>Active</b> group.</p>
+
+<p><i>Request:</i> <code>GET /api/1/trading/orders/active</code></p>
+
+<p><i>Parameters:</i> </p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>symbols</code></td>
+<td>No</td>
+<td>string</td>
+<td>Comma-separated list of symbols. Default - all symbols</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"orders"</span><span class="p">:</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="nt">"orderId"</span><span class="p">:</span> <span class="s2">"51521638"</span><span class="p">,</span>
+    <span class="nt">"orderStatus"</span><span class="p">:</span> <span class="s2">"new"</span><span class="p">,</span>
+    <span class="nt">"lastTimestamp"</span><span class="p">:</span> <span class="mi">1394798401494</span><span class="p">,</span>
+    <span class="nt">"orderPrice"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="nt">"orderQuantity"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"avgPrice"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="nt">"quantityLeaves"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"limit"</span><span class="p">,</span>
+    <span class="nt">"timeInForce"</span><span class="p">:</span> <span class="s2">"GTC"</span><span class="p">,</span>
+    <span class="nt">"cumQuantity"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"7fb8756ec8045847c3b840e84d43bd83"</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"LTCBTC"</span><span class="p">,</span>
+    <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"sell"</span><span class="p">,</span>
+    <span class="nt">"execQuantity"</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="p">}</span>
+<span class="p">]}</span>
+</pre></div>
+
+<h3>
+<a name="api1tradingnew_order" class="anchor" href="#api1tradingnew_order"><span class="octicon octicon-link"></span></a>
+<a name="neworder"></a>/api/1/trading/new_order</h3>
+
+<p><i>Summary:</i> place a new order. Returns a JSON object <code>ExecutionReport</code> that respresent a status of the order.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/terminal">https://hitbtc.com/terminal</a>, <b>Sell Order</b> and <b>Buy Order</b> panels.</p>
+
+<p><i>Request:</i> <code>POST /api/1/trading/new_order</code></p>
+
+<p><i>Parameters:</i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clientOrderId</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>Unique order ID generated by client. From 8 to 32 characters</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>Currency symbol traded on HitBTC exchange (see <a href="#cursymbols">Currency symbols</a>), e.g. <code>BTCUSD</code>
+</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>Yes</td>
+<td>
+<code>buy</code> or <code>sell</code>
+</td>
+<td>Side of a trade</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>Yes - for limit orders</td>
+<td>decimal</td>
+<td>Order price</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Order quantity in lots</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>No</td>
+<td>
+<code>limit</code> or <code>market</code>
+</td>
+<td>Order type</td>
+</tr>
+<tr>
+<td><code>timeInForce</code></td>
+<td>No</td>
+<td>
+<code>GTC</code> - Good-Til-Canceled <br><code>IOC</code> - Immediate-Or-Cancel<br><code>FOK</code> - Fill-Or-Kill<br><code>DAY</code> - day</td>
+<td>Time in force. Default value - <code>GTC</code>
+</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example:</i></p>
+
+<pre><code>post url: /api/1/trading/new_order?nonce=1395049771755&amp;apikey=f6ab189hd7a2007e01d95667de3c493d
+post data: clientOrderId=11111112&amp;symbol=BTCUSD&amp;side=buy&amp;price=0.1&amp;quantity=100&amp;type=limit&amp;timeInForce=GTC
+</code></pre>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span> <span class="nt">"ExecutionReport"</span><span class="p">:</span> 
+   <span class="p">{</span> <span class="nt">"orderId"</span><span class="p">:</span> <span class="s2">"58521038"</span><span class="p">,</span>
+     <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"11111112"</span><span class="p">,</span>
+     <span class="nt">"execReportType"</span><span class="p">:</span> <span class="s2">"new"</span><span class="p">,</span>
+     <span class="nt">"orderStatus"</span><span class="p">:</span> <span class="s2">"new"</span><span class="p">,</span>
+     <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+     <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span><span class="p">,</span>
+     <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1395236779235</span><span class="p">,</span>
+     <span class="nt">"price"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+     <span class="nt">"quantity"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+     <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"limit"</span><span class="p">,</span>
+     <span class="nt">"timeInForce"</span><span class="p">:</span> <span class="s2">"GTC"</span><span class="p">,</span>
+     <span class="nt">"lastQuantity"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+     <span class="nt">"lastPrice"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+     <span class="nt">"leavesQuantity"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+     <span class="nt">"cumQuantity"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+     <span class="nt">"averagePrice"</span><span class="p">:</span> <span class="mi">0</span> <span class="p">}</span> <span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1tradingcancel_order" class="anchor" href="#api1tradingcancel_order"><span class="octicon octicon-link"></span></a>
+<a name="cancelorder"></a>/api/1/trading/cancel_order</h3>
+
+<p><i>Summary:</i> cancels an order. Returns <code>ExecutionReport</code> JSON object or <code>CancelReject</code> JSON object.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/terminal">https://hitbtc.com/terminal</a>, <b>My Orders</b> tab. Click <b>Cancel</b> button in required order line.</p>
+
+<p><i>Request:</i> <code>POST /api/1/trading/cancel_order</code></p>
+
+<p><i>Parameters:</i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clientOrderId</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>Order ID, the same as in cancelling order, from 8 to 32 characters</td>
+</tr>
+<tr>
+<td><code>cancelRequestClientOrderId</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>Unqiue ID generated by client, from 8 to 32 characters</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>Currency symbol, the same as in cancelling order</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>Yes</td>
+<td>
+<code>buy</code> or <code>sell</code>
+</td>
+<td>Side of a trade, the same as in cancelling order</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example:</i></p>
+
+<pre><code>post url: /api/1/trading/cancel_order?nonce=1395049771755&amp;apikey=f6ab189hd7a2007e01d95667de3c493d
+post data: clientOrderId=11111112&amp;cancelRequestClientOrderId=38257825798349578945&amp;symbol=BTCUSD&amp;side=buy
+</code></pre>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span> <span class="nt">"ExecutionReport"</span><span class="p">:</span> 
+   <span class="p">{</span> <span class="nt">"orderId"</span><span class="p">:</span> <span class="s2">"58521038"</span><span class="p">,</span>
+     <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"11111112"</span><span class="p">,</span>
+     <span class="nt">"execReportType"</span><span class="p">:</span> <span class="s2">"canceled"</span><span class="p">,</span>
+     <span class="nt">"orderStatus"</span><span class="p">:</span> <span class="s2">"canceled"</span><span class="p">,</span>
+     <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+     <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span><span class="p">,</span>
+     <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1395236779346</span><span class="p">,</span>
+     <span class="nt">"price"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+     <span class="nt">"quantity"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+     <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"limit"</span><span class="p">,</span>
+     <span class="nt">"timeInForce"</span><span class="p">:</span> <span class="s2">"GTC"</span><span class="p">,</span>
+     <span class="nt">"lastQuantity"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+     <span class="nt">"lastPrice"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+     <span class="nt">"leavesQuantity"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+     <span class="nt">"cumQuantity"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+     <span class="nt">"averagePrice"</span><span class="p">:</span> <span class="mi">0</span> <span class="p">}</span> <span class="p">}</span>
+</pre></div>
+
+<p><code>CancelReject</code> example:</p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span> <span class="nt">"CancelReject"</span><span class="p">:</span> <span class="p">{</span> 
+    <span class="nt">"cancelRequestClientOrderId"</span><span class="p">:</span> <span class="s2">"011111112"</span><span class="p">,</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"11111112"</span><span class="p">,</span>
+    <span class="nt">"rejectReasonCode"</span><span class="p">:</span> <span class="s2">"orderNotFound"</span> 
+<span class="p">}</span> <span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1tradingordersrecent" class="anchor" href="#api1tradingordersrecent"><span class="octicon octicon-link"></span></a>
+<a name="recentorders"></a>/api/1/trading/orders/recent</h3>
+
+<p><i>Summary:</i> returns an array of user's recent orders (<code>order</code> objects) for last 24 hours, sorted by order update time.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/terminal">https://hitbtc.com/terminal</a>, <b>My orders</b> tab.</p>
+
+<p><i>Request:</i> <code>GET /api/1/trading/orders/recent</code></p>
+
+<p><i><i>Parameters:</i></i> </p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>start_index</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Zero-based index, 0 by default</td>
+</tr>
+<tr>
+<td><code>max_results</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Maximum quantity of returned items, at most 1000</td>
+</tr>
+<tr>
+<td><code>sort</code></td>
+<td>No</td>
+<td>
+<code>asc</code> or <code>desc</code>
+</td>
+<td>Orders are sorted ascending (default) or descending</td>
+</tr>
+<tr>
+<td><code>symbols</code></td>
+<td>No</td>
+<td>string</td>
+<td>Comma-separated list of currency symbols</td>
+</tr>
+<tr>
+<td><code>statuses</code></td>
+<td>No</td>
+<td>
+<code>new</code> <br> <code>partiallyFilled</code> <br> <code>filled</code> <br> <code>canceled</code> <br> <code>expired</code> <br> <code>rejected</code>
+</td>
+<td>Comma-separated list of order statuses</td>
+</tr>
+</tbody>
+</table>
+
+<p>The following fields are used in <code>order</code> object:</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>orderId</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Order ID on the exchange</td>
+</tr>
+<tr>
+<td><code>orderStatus</code></td>
+<td>No</td>
+<td>
+<code>new</code> <br> <code>partiallyFilled</code> <br> <code>filled</code> <br> <code>canceled</code> <br> <code>expired</code> <br> <code>rejected</code>
+</td>
+<td>Order status</td>
+</tr>
+<tr>
+<td><code>lastTimestamp</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>UTC timestamp of the last change, in milliseconds</td>
+</tr>
+<tr>
+<td><code>orderPrice</code></td>
+<td>Yes - for limit orders</td>
+<td>decimal</td>
+<td>Order price</td>
+</tr>
+<tr>
+<td><code>orderQuantity</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Order quantity, in lots</td>
+</tr>
+<tr>
+<td><code>avgPrice</code></td>
+<td>Yes</td>
+<td>decimal</td>
+<td>Average price</td>
+</tr>
+<tr>
+<td><code>quantityLeaves</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Remaining quantity, in lots</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>No</td>
+<td>
+<code>limit</code> or <code>market</code>
+</td>
+<td>Type of an order</td>
+</tr>
+<tr>
+<td><code>timeInForce</code></td>
+<td>No</td>
+<td>
+<code>GTC</code> - Good-Til-Canceled <br><code>IOC</code> - Immediate-Or-Cancel<br><code>FOK</code> - Fill-Or-Kill<br><code>DAY</code> - day</td>
+<td>Time in force</td>
+</tr>
+<tr>
+<td><code>clientOrderId</code></td>
+<td>No</td>
+<td>string</td>
+<td>Unique client-generated ID</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>No</td>
+<td>string</td>
+<td>Currency symbol</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>No</td>
+<td>
+<code>buy</code> or <code>sell</code>
+</td>
+<td>Side of a trade</td>
+</tr>
+<tr>
+<td><code>execQuantity</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Last executed quantity, in lots</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"orders"</span><span class="p">:</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="nt">"orderId"</span><span class="p">:</span> <span class="s2">"1"</span><span class="p">,</span>
+    <span class="nt">"orderStatus"</span><span class="p">:</span> <span class="s2">"new"</span><span class="p">,</span>
+    <span class="nt">"lastTimestamp"</span><span class="p">:</span> <span class="mi">1395659434845</span><span class="p">,</span>
+    <span class="nt">"orderPrice"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"orderQuantity"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"avgPrice"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="nt">"quantityLeaves"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"limit"</span><span class="p">,</span>
+    <span class="nt">"timeInForce"</span><span class="p">:</span> <span class="s2">"GTC"</span><span class="p">,</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"111111111111111111111111"</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+    <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span><span class="p">,</span>
+    <span class="nt">"execQuantity"</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="nt">"orderId"</span><span class="p">:</span> <span class="s2">"2"</span><span class="p">,</span>
+    <span class="nt">"orderStatus"</span><span class="p">:</span> <span class="s2">"new"</span><span class="p">,</span>
+    <span class="nt">"lastTimestamp"</span><span class="p">:</span> <span class="mi">1395664550770</span><span class="p">,</span>
+    <span class="nt">"orderPrice"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"orderQuantity"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"avgPrice"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="nt">"quantityLeaves"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"limit"</span><span class="p">,</span>
+    <span class="nt">"timeInForce"</span><span class="p">:</span> <span class="s2">"GTC"</span><span class="p">,</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"111111111111111111111112"</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+    <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"sell"</span><span class="p">,</span>
+    <span class="nt">"execQuantity"</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="nt">"orderId"</span><span class="p">:</span> <span class="s2">"3"</span><span class="p">,</span>
+    <span class="nt">"orderStatus"</span><span class="p">:</span> <span class="s2">"canceled"</span><span class="p">,</span>
+    <span class="nt">"lastTimestamp"</span><span class="p">:</span> <span class="mi">1395664737500</span><span class="p">,</span>
+    <span class="nt">"orderPrice"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"orderQuantity"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"avgPrice"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="nt">"quantityLeaves"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"limit"</span><span class="p">,</span>
+    <span class="nt">"timeInForce"</span><span class="p">:</span> <span class="s2">"GTC"</span><span class="p">,</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"111111111111111111111113"</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+    <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span><span class="p">,</span>
+    <span class="nt">"execQuantity"</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="p">}</span>
+<span class="p">]}</span>
+</pre></div>
+
+<h3>
+<a name="api1tradingtrades" class="anchor" href="#api1tradingtrades"><span class="octicon octicon-link"></span></a>
+<a name="usertrades"></a>/api/1/trading/trades</h3>
+
+<p><i>Summary:</i> returns the trading history - an array of user's trades (<code>trade</code> objects).</p>
+
+<p><i>Sample usage at HitBTC site:</i> <a href="https://hitbtc.com/trading-history">https://hitbtc.com/trading-history</a>. Trades for preceding 24 hours see <a href="https://hitbtc.com/terminal">https://hitbtc.com/terminal</a>, <b>My trades</b> tab. </p>
+
+<p><i>Request:</i> <code>GET /api/1/trading/trades</code></p>
+
+<p><i>Parameters:</i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>by</code></td>
+<td>Yes</td>
+<td>
+<code>trade_id</code> or <code>ts</code>
+</td>
+<td>Selects if filtering and sorting is performed by <code>trade_id</code> or by <code>timestamp</code>
+</td>
+</tr>
+<tr>
+<td><code>start_index</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Zero-based index. Default value is 0</td>
+</tr>
+<tr>
+<td><code>max_results</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Maximum quantity of returned results, at most 1000</td>
+</tr>
+<tr>
+<td><code>symbols</code></td>
+<td>No</td>
+<td>string</td>
+<td>Comma-separated list of currency symbols</td>
+</tr>
+<tr>
+<td><code>sort</code></td>
+<td>No</td>
+<td>
+<code>asc</code> or <code>desc</code>
+</td>
+<td>Trades are sorted ascending (default) or descending</td>
+</tr>
+<tr>
+<td><code>from</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Returns trades with <code>trade_id</code> &gt; specified <code>trade_id</code> (if <code>by=trade_id</code>) or returns trades with <code>timestamp</code> &gt;= specified timestamp<code>(if</code>by=ts`)</td>
+</tr>
+<tr>
+<td><code>till</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Returns trades with <code>trade_id</code> &lt; specified <code>trade_id</code> (if <code>by=trade_id</code>) or returns trades with <code>timestamp</code> &lt; specified <code>timestamp</code> (if <code>by=ts</code>)</td>
+</tr>
+</tbody>
+</table>
+
+<p>The following fields are used in <code>trade</code> object:</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tradeId</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Trade ID on the exchange</td>
+</tr>
+<tr>
+<td><code>execPrice</code></td>
+<td>Yes</td>
+<td>decimal</td>
+<td>Trade price</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Timestamp, in milliseconds</td>
+</tr>
+<tr>
+<td><code>originalOrderId</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Order ID on the exchange</td>
+</tr>
+<tr>
+<td><code>fee</code></td>
+<td>No</td>
+<td>decimal</td>
+<td>Fee for the trade, negative value means rebate</td>
+</tr>
+<tr>
+<td><code>clientOrderId</code></td>
+<td>No</td>
+<td>string</td>
+<td>Unique order ID generated by client. From 8 to 32 characters</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>No</td>
+<td>string</td>
+<td>Currency symbol</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>No</td>
+<td>
+<code>buy</code> or <code>sell</code>
+</td>
+<td>Side of a trade</td>
+</tr>
+<tr>
+<td><code>execQuantity</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Trade size, in lots</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"trades"</span><span class="p">:</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="nt">"tradeId"</span><span class="p">:</span> <span class="mi">39</span><span class="p">,</span>
+    <span class="nt">"execPrice"</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
+    <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1395231854030</span><span class="p">,</span>
+    <span class="nt">"originalOrderId"</span><span class="p">:</span> <span class="s2">"114"</span><span class="p">,</span>
+    <span class="nt">"fee"</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"FTO18jd4ou41--25"</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+    <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"sell"</span><span class="p">,</span>
+    <span class="nt">"execQuantity"</span><span class="p">:</span> <span class="mi">10</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="nt">"tradeId"</span><span class="p">:</span> <span class="mi">38</span><span class="p">,</span>
+    <span class="nt">"execPrice"</span><span class="p">:</span> <span class="mf">140.1</span><span class="p">,</span>
+    <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1395231853882</span><span class="p">,</span>
+    <span class="nt">"originalOrderId"</span><span class="p">:</span> <span class="s2">"112"</span><span class="p">,</span>
+    <span class="nt">"fee"</span><span class="p">:</span> <span class="mf">0.028</span><span class="p">,</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"FTO18jd4ou3n--15"</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+    <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span><span class="p">,</span>
+    <span class="nt">"execQuantity"</span><span class="p">:</span> <span class="mi">10</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="nt">"tradeId"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="nt">"execPrice"</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
+    <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1394789991659</span><span class="p">,</span>
+    <span class="nt">"originalOrderId"</span><span class="p">:</span> <span class="s2">"24"</span><span class="p">,</span>
+    <span class="nt">"fee"</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"FTO18ivvcbvt--25"</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+    <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"sell"</span><span class="p">,</span>
+    <span class="nt">"execQuantity"</span><span class="p">:</span> <span class="mi">10</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="nt">"tradeId"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="nt">"execPrice"</span><span class="p">:</span> <span class="mi">140</span><span class="p">,</span>
+    <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1394789991527</span><span class="p">,</span>
+    <span class="nt">"originalOrderId"</span><span class="p">:</span> <span class="s2">"22"</span><span class="p">,</span>
+    <span class="nt">"fee"</span><span class="p">:</span> <span class="mf">0.028</span><span class="p">,</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"FTO18ivvcbvj--15"</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+    <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span><span class="p">,</span>
+    <span class="nt">"execQuantity"</span><span class="p">:</span> <span class="mi">10</span>
+  <span class="p">}</span>
+<span class="p">]}</span>
+</pre></div>
+
+<h2>
+<a name="payment-restful-api" class="anchor" href="#payment-restful-api"><span class="octicon octicon-link"></span></a>
+<a name="paymentsrestful"></a>Payment RESTful API</h2>
+
+<p>RESTful API allows to manage funds with the following methods:</p>
+
+<ul>
+<li>get multi-currency balance of the main account - <a href="#paymentbalance">/api/1/payment/balance</a>
+</li>
+<li>transfer funds between main and trading accounts - <a href="#transfer">/api/1/payment/transfer_to_trading, /api/1/payment/transfer_to_main</a>
+</li>
+<li>get the last created incoming cryptocurrency address or create a new one -  <a href="#getaddress">/api/1/payment/address/ (GET)</a>, <a href="#postaddress">/api/1/payment/address/ (POST)</a>,</li>
+<li>create an outgoing crypotocurrency transaction - <a href="#payout">/api/1/payment/payout</a>
+</li>
+<li>get a list of payment transactions - <a href="#transactions">/api/1/payment/transactions</a>
+</li>
+</ul>
+
+<p>Payment operations require <a href="#authentication">authentication</a></p>
+
+<h3>
+<a name="api1paymentbalance" class="anchor" href="#api1paymentbalance"><span class="octicon octicon-link"></span></a>
+<a name="paymentbalance"></a>/api/1/payment/balance</h3>
+
+<p><i>Summary:</i> returns multi-currency balance of the main account.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/account">https://hitbtc.com/account</a>.</p>
+
+<p><i>Request:</i> <code>GET /api/1/payment/balance</code></p>
+
+<p><i><i>Parameters:</i></i> no parameters</p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+  <span class="nt">"balance"</span><span class="p">:</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="nt">"currency_code"</span><span class="p">:</span> <span class="s2">"USD"</span><span class="p">,</span>
+    <span class="nt">"balance"</span><span class="p">:</span> <span class="mf">13.12</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="nt">"currency_code"</span><span class="p">:</span> <span class="s2">"EUR"</span><span class="p">,</span>
+    <span class="nt">"balance"</span><span class="p">:</span> <span class="mi">0</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="nt">"currency_code"</span><span class="p">:</span> <span class="s2">"LTC"</span><span class="p">,</span>
+    <span class="nt">"balance"</span><span class="p">:</span> <span class="mf">1.07</span>
+  <span class="p">},</span> 
+  <span class="p">{</span><span class="nt">"currency_code"</span><span class="p">:</span> <span class="s2">"BTC"</span><span class="p">,</span> 
+  <span class="nt">"balance"</span><span class="p">:</span> <span class="mf">11.9</span>
+  <span class="p">}</span>
+<span class="p">]}</span>
+</pre></div>
+
+<h3>
+<a name="api1paymenttransfer_to_trading-and-api1paymenttransfer_to_main" class="anchor" href="#api1paymenttransfer_to_trading-and-api1paymenttransfer_to_main"><span class="octicon octicon-link"></span></a>
+<a name="transfer"></a>/api/1/payment/transfer_to_trading and /api/1/payment/transfer_to_main</h3>
+
+<p><i>Request:</i> <code>POST /api/1/payment/transfer_to_trading, /api/1/payment/transfer_to_main</code></p>
+
+<p><i>Summary:</i> transfers funds between main and trading accounts; returns a transaction ID or an error.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/account">https://hitbtc.com/account</a>. Click the appropriate arrow in the currency line then specify required amount and click <b>Transfer</b> button.</p>
+
+<p><i><i>Parameters:</i></i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>amount</code></td>
+<td>Yes</td>
+<td>decimal</td>
+<td>Funds amount to transfer</td>
+</tr>
+<tr>
+<td><code>currency_code</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>Currency symbol, e.g. <code>BTC</code>
+</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example responses:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"message"</span><span class="p">:</span> <span class="s2">"Balance not enough"</span><span class="p">,</span> <span class="nt">"statusCode"</span><span class="p">:</span> <span class="mi">409</span><span class="p">,</span> <span class="nt">"body"</span><span class="p">:</span> <span class="s2">"Balance not enough"</span><span class="p">}</span>
+</pre></div>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"transaction"</span><span class="p">:</span> <span class="s2">"52976-103925-18443984"</span><span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1paymentaddress-get" class="anchor" href="#api1paymentaddress-get"><span class="octicon octicon-link"></span></a>
+<a name="getaddress"></a>/api/1/payment/address/ (GET)</h3>
+
+<p><i>Summary:</i> returns the last created incoming cryptocurrency address that can be used to deposit cryptocurrency to your account. </p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/account">https://hitbtc.com/account</a>. In the required currency line click <b>Fund</b> icon then click <b>copy address</b> link.</p>
+
+<p><i>Request:</i> <code>GET /api/1/payment/address/:currency</code></p>
+
+<p><i><i>Parameters:</i></i> no parameters</p>
+
+<p><i>Example:</i> <code>GET /api/1/payment/address/BTC</code></p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"address"</span><span class="p">:</span><span class="s2">"1HDtDgG9HYpp1YJ6kFYSB6NgaG2haKnxUH"</span><span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1paymentaddress-post" class="anchor" href="#api1paymentaddress-post"><span class="octicon octicon-link"></span></a>
+<a name="postaddress"></a>/api/1/payment/address/ (POST)</h3>
+
+<p><i>Summary:</i> creates an address that can be used to deposit cryptocurrency to your account; returns a new cryptocurrency address.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/account">https://hitbtc.com/account</a>. In the required currency line click <b>Fund</b> icon then click <b>create new address</b> link.</p>
+
+<p><i>Request:</i> <code>POST /api/1/payment/address/:currency</code></p>
+
+<p><i><i>Parameters:</i></i> no parameters</p>
+
+<p><i>Example:</i> <code>POST /api/1/payment/address/BTC</code></p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"address"</span><span class="p">:</span><span class="s2">"1HDtDgG9HYpp1YJ6kFYSB6NgaG2haKnxUH"</span><span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1paymentpayout" class="anchor" href="#api1paymentpayout"><span class="octicon octicon-link"></span></a>
+<a name="payout"></a>/api/1/payment/payout</h3>
+
+<p><i>Summary:</i> withdraws money and creates an outgoing crypotocurrency transaction; returns a transaction ID on the exchange or an error.</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/account">https://hitbtc.com/account</a>. In the required currency line click <b>Fund</b> icon then click <b>copy address</b> link.</p>
+
+<p><i>Request:</i> <code>POST /api/1/payment/payout</code></p>
+
+<p><i>Parameters:</i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>amount</code></td>
+<td>Yes</td>
+<td>decimal</td>
+<td>Funds amount to withdraw</td>
+</tr>
+<tr>
+<td><code>currency_code</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>Currency symbol, e.g. <code>BTC</code>
+</td>
+</tr>
+<tr>
+<td><code>address</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>BTC/LTC address to withdraw to</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example:</i> <code>amount=0.001&amp;currency_code=BTC&amp;address=1LuWvENyuPNHsHWjDgU1QYKWUYN9xxy7n5</code></p>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"transaction"</span><span class="p">:</span> <span class="s2">"51545-103004-18442681"</span><span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="api1paymenttransactions" class="anchor" href="#api1paymenttransactions"><span class="octicon octicon-link"></span></a>
+<a name="transactions"></a>/api/1/payment/transactions</h3>
+
+<p><i>Summary:</i> returns a list of payment transactions and their statuses (array of transactions).</p>
+
+<p><i>Sample usage at HitBTC site:</i> see <a href="https://hitbtc.com/account">https://hitbtc.com/account</a>, <b>History</b> panel.</p>
+
+<p><i>Request:</i> <code>GET /api/1/payment/transactions</code></p>
+
+<p><i>Parameters:</i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>offset</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Start index for the query, default = 0</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Maximum results for the query</td>
+</tr>
+<tr>
+<td><code>dir</code></td>
+<td>No</td>
+<td>
+<code>ask</code> or <code>desc</code>
+</td>
+<td>Transactions are sorted ascending or descending (default)</td>
+</tr>
+</tbody>
+</table>
+
+<p><i>Example response:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"transactions"</span><span class="p">:</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="nt">"id"</span><span class="p">:</span> <span class="s2">"49720-104765-18440728"</span><span class="p">,</span>
+    <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"payin"</span><span class="p">,</span>
+    <span class="nt">"status"</span><span class="p">:</span> <span class="s2">"pending"</span><span class="p">,</span>
+    <span class="nt">"created"</span><span class="p">:</span> <span class="mi">1397056648</span><span class="p">,</span>
+    <span class="nt">"finished"</span><span class="p">:</span> <span class="mi">1397056646</span><span class="p">,</span>
+    <span class="nt">"amount_from"</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">,</span>
+    <span class="nt">"currency_code_from"</span><span class="p">:</span> <span class="s2">"BTC"</span><span class="p">,</span>
+    <span class="nt">"amount_to"</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">,</span>
+    <span class="nt">"currency_code_to"</span><span class="p">:</span> <span class="s2">"BTC"</span><span class="p">,</span>
+    <span class="nt">"destination_data"</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+    <span class="nt">"commission_percent"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="nt">"bitcoin_address"</span><span class="p">:</span> <span class="s2">"1KnVXD1Wc1wZbTHiB1TDgMcnSRi2PnMHAV"</span><span class="p">,</span>
+    <span class="nt">"bitcoin_return_address"</span><span class="p">:</span> <span class="s2">"1QBuhFksjoWTQWJKWUPyQ37wsQohLAhJvK"</span>
+  <span class="p">}</span>
+<span class="p">]}</span>
+</pre></div>
+
+<h1>
+<a name="socketio-market-data" class="anchor" href="#socketio-market-data"><span class="octicon octicon-link"></span></a>
+<a name="socketio"></a>socket.io Market Data</h1>
+
+<p>The API provides socket.io version 1.0.x protocol for receiving market data. It supports:</p>
+
+<ul>
+<li>WebSocket and xhr-polling transport</li>
+<li>multiplexing a single connection with socket.io namespaces (see <a href="#tradesnamespace"><code>trades</code> namespace</a>)</li>
+</ul>
+
+<p>Useful links:</p>
+
+<ul>
+<li>official socket.io documentation - <code>http://socket.io/</code>
+</li>
+<li>chrome extension Simple WebSocket Client - <code>https://chrome.google.com/webstore/detail/simple-websocket-client/pfdhoblngboilpfeibdedpjgfnlcodoo</code>. See also the <a href="#sample">Sample code</a>
+</li>
+</ul>
+
+<p>API links:</p>
+
+<ul>
+<li>socket.io URL: <code>http://api.hitbtc.com:8081</code>
+</li>
+<li>socket.io demo URL: <code>http://demo-api.hitbtc.com:8081</code>
+</li>
+<li>live example (both demo and primary API): <code>http://jsfiddle.net/rn7zy75n/1/</code>
+</li>
+</ul>
+
+<h3>
+<a name="trades-namespace" class="anchor" href="#trades-namespace"><span class="octicon octicon-link"></span></a>
+<a name="tradesnamespace"></a><code>trades</code> namespace</h3>
+
+<p><i>Namespace:</i> <code>trades</code></p>
+
+<p><i>URLs:</i> <code>/trades/:symbol</code> e.g. <code>/trades/BTCUSD</code></p>
+
+<p><i>Event:</i> <code>trade</code></p>
+
+<p><i>Event example:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"price"</span><span class="p">:</span><span class="mf">478.33</span><span class="p">,</span><span class="nt">"amount"</span><span class="p">:</span><span class="mf">0.15</span><span class="p">}</span>
+</pre></div>
+
+<h1>
+<a name="streaming-api" class="anchor" href="#streaming-api"><span class="octicon octicon-link"></span></a>
+<a name="streaming"></a>Streaming API</h1>
+
+<p>Streaming API is based on <a href="http://en.wikipedia.org/wiki/WebSocket">WebSocket protocol</a>. All messages are in JSON format.</p>
+
+<p>Streaming API provides an access to: </p>
+
+<ul>
+<li>market data. See <a href="#marketstreaming">Market data streaming end-point</a><br>
+</li>
+<li>trading operations. See <a href="#tradingstreaming">Trading streaming end-point</a>
+</li>
+</ul>
+
+<h2>
+<a name="market-data-streaming-end-point" class="anchor" href="#market-data-streaming-end-point"><span class="octicon octicon-link"></span></a>
+<a name="marketstreaming"></a>Market data streaming end-point</h2>
+
+<p>API links:</p>
+
+<ul>
+<li>URL: ws://api.hitbtc.com:80</li>
+<li>Demo URL: ws://demo-api.hitbtc.com:80</li>
+</ul>
+
+<p>Once client connects to this URL the session is started. </p>
+
+<p>The server broadcasts the following types of messages:</p>
+
+<ul>
+<li>
+<a href="#MarketDataSnapshotFullRefresh">MarketDataSnapshotFullRefresh</a> message contains a full snapshot of the order book.</li>
+<li>
+<a href="#MarketDataIncrementalRefresh">MarketDataIncrementalRefresh</a> message contains incremental changes</li>
+</ul>
+
+<p>Some recommendations to consider:</p>
+
+<ul>
+<li>The application could receive the first snapshot and maintain the order book by applying incremental updates.</li>
+<li>It's recommended to invalidate a state of the application periodically using snapshots.</li>
+<li>It's recommended to check sequence numbers and to drop updates with non-monotonous sequence numbers.</li>
+</ul>
+
+<h3>
+<a name="marketdatasnapshotfullrefresh-message" class="anchor" href="#marketdatasnapshotfullrefresh-message"><span class="octicon octicon-link"></span></a>
+<a name="MarketDataSnapshotFullRefresh"></a>MarketDataSnapshotFullRefresh message</h3>
+
+<p><i>Summary:</i> contains a full snapshot of the order book.</p>
+
+<p><i>Example message:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"MarketDataSnapshotFullRefresh"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">"snapshotSeqNo"</span><span class="p">:</span> <span class="mi">899009</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+    <span class="nt">"exchangeStatus"</span><span class="p">:</span> <span class="s2">"working"</span><span class="p">,</span>
+    <span class="nt">"ask"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">101.42</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">7</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">101.85</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">5</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">102.59</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">114.53</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">3</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">114.54</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">6</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">114.55</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">19</span>
+        <span class="p">}</span>
+    <span class="p">],</span>
+    <span class="nt">"bid"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">89.72</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">79</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">89.71</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">158</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">89.7</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">166</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">89.69</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">231</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">89.68</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">169</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">89.67</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">186</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">89.66</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">178</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}}</span>
+</pre></div>
+
+<p>The following fields are used in <code>MarketDataSnapshotFullRefresh</code> object:</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>seqNo</code></td>
+<td>Monotone increasing number of the snapshot, each symbol has its own sequence</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>UTC timestamp, in milliseconds</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>Currency symbol traded on HitBTC exchange</td>
+</tr>
+<tr>
+<td><code>exchangeStatus</code></td>
+<td>Exchange status: <code>on</code> - trading is open; <code>off</code> - trading is suspended</td>
+</tr>
+<tr>
+<td>
+<code>ask</code>, <code>bid</code>
+</td>
+<td>Sorted arrays of price levels in the order book; full snapshot (all price levels) is provided</td>
+</tr>
+</tbody>
+</table>
+
+<h3>
+<a name="marketdataincrementalrefresh-message" class="anchor" href="#marketdataincrementalrefresh-message"><span class="octicon octicon-link"></span></a>
+<a name="MarketDataIncrementalRefresh"></a>MarketDataIncrementalRefresh message</h3>
+
+<p><i>Summary:</i> contains incremental changes of the order book and individual trades.</p>
+
+<p><i>Example message:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"MarketDataIncrementalRefresh"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">"seqNo"</span><span class="p">:</span> <span class="mi">546693</span><span class="p">,</span>
+    <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1381394357861</span><span class="p">,</span>
+    <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+    <span class="nt">"exchangeStatus"</span><span class="p">:</span> <span class="s2">"on"</span><span class="p">,</span>
+    <span class="nt">"ask"</span><span class="p">:</span> <span class="p">[],</span>
+    <span class="nt">"bid"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">100.98</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">3</span>
+        <span class="p">}</span>
+    <span class="p">],</span>
+    <span class="nt">"trade"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="nt">"price"</span><span class="p">:</span> <span class="mf">100.98</span><span class="p">,</span>
+            <span class="nt">"size"</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+            <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1346691273926</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}}</span>
+</pre></div>
+
+<p>The following fields are used in <code>MarketDataIncrementalRefresh</code> object:</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>seqNo</code></td>
+<td>Monotone increasing number of the snapshot, each symbol has its own sequence</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>UTC timestamp, in milliseconds</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>Currency symbol traded on HitBTC exchange</td>
+</tr>
+<tr>
+<td><code>exchangeStatus</code></td>
+<td>Exchange status: <code>on</code> - trading is open; <code>off</code> - trading is suspended</td>
+</tr>
+<tr>
+<td>
+<code>ask</code>, <code>bid</code>, <code>trade</code>
+</td>
+<td>An array of changes in the order book where <code>price</code> is a price, <code>size</code> is new size. <code>size</code>=0 means that the price level has been removed</td>
+</tr>
+</tbody>
+</table>
+
+<h2>
+<a name="trading-streaming-end-point" class="anchor" href="#trading-streaming-end-point"><span class="octicon octicon-link"></span></a>
+<a name="tradingstreaming"></a>Trading streaming end-point</h2>
+
+<p>API links:</p>
+
+<ul>
+<li>URL: wss://api.hitbtc.com:8080</li>
+<li>Demo URL: ws://demo-api.hitbtc.com:8080</li>
+</ul>
+
+<p>Trading endpoint requires sending login message after connection established. All client messages should be signed and should contain valid and active API key (see <a href="#authenticationwebsocket">API keys and message signatures</a>).</p>
+
+<p>The following message types are supported:</p>
+
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#Login">Login</a></td>
+<td>Client -&gt; Server</td>
+</tr>
+<tr>
+<td><a href="#NewOrder">NewOrder</a></td>
+<td>Client -&gt; Server</td>
+</tr>
+<tr>
+<td><a href="#OrderCancel">OrderCancel</a></td>
+<td>Client -&gt; Server</td>
+</tr>
+<tr>
+<td><a href="#ExecutionReport">ExecutionReport</a></td>
+<td>Server -&gt; Client</td>
+</tr>
+<tr>
+<td><a href="#CancelReject">CancelReject</a></td>
+<td>Server -&gt; Client</td>
+</tr>
+</tbody>
+</table>
+
+<h3>
+<a name="api-keys-and-message-signatures" class="anchor" href="#api-keys-and-message-signatures"><span class="octicon octicon-link"></span></a>
+<a name="authenticationwebsocket"></a>API keys and message signatures</h3>
+
+<p>All client messages should be signed in the following manner:</p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"apikey"</span><span class="p">:</span> <span class="s2">"e418f5b4a15608b78185540ef583b9fc"</span><span class="p">,</span>
+    <span class="nt">"signature"</span><span class="p">:</span> <span class="s2">"FN6/9dnMfLh3wZj+cAFr82HcSvmwuniMQqUlRxSQ9WxRqFpYrjY2xlvDzLC5+qSZAHts8R7KR7HbjiI3SzVxHg=="</span><span class="p">,</span>
+    <span class="nt">"message"</span><span class="p">:{</span>
+        <span class="nt">"nonce"</span><span class="p">:</span> <span class="mi">12</span><span class="p">,</span>
+        <span class="nt">"payload"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">"Login"</span><span class="p">:</span> <span class="p">{}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<p><i>Fields:</i></p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nonce</code></td>
+<td>Unique monotonous number that should be generated on the client. Should be monotonous within the same connection</td>
+</tr>
+<tr>
+<td><code>signature</code></td>
+<td>Signature - hash-based message authentication code: base64 <a href="http://en.wikipedia.org/wiki/Hash-based_message_authentication_code">hmac-sha512</a> (binary representation of the message)</td>
+</tr>
+</tbody>
+</table>
+
+<h3>
+<a name="login" class="anchor" href="#login"><span class="octicon octicon-link"></span></a>
+<a name="Login"></a>Login</h3>
+
+<p><i>Example:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"apikey"</span><span class="p">:</span> <span class="s2">"e418f5b4a15608b78185540ef583b9fc"</span><span class="p">,</span>
+    <span class="nt">"signature"</span><span class="p">:</span> <span class="s2">"FN6/9dnMfLh3wZj+cAFr82HcSvmwuniMQqUlRxSQ9WxRqFpYrjY2xlvDzLC5+qSZAHts8R7KR7HbjiI3SzVxHg=="</span><span class="p">,</span>
+    <span class="nt">"message"</span><span class="p">:{</span>
+        <span class="nt">"nonce"</span><span class="p">:</span> <span class="mi">12</span><span class="p">,</span> 
+        <span class="nt">"payload"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">"Login"</span><span class="p">:</span> <span class="p">{}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<p><i><i>Parameters:</i></i> no parameters</p>
+
+<p>If client doesn't send valid logon message in 10 second the connection will be dropped.</p>
+
+<h3>
+<a name="neworder" class="anchor" href="#neworder"><span class="octicon octicon-link"></span></a>
+<a name="NewOrder"></a>NewOrder</h3>
+
+<p><i>Example:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"apikey"</span><span class="p">:</span> <span class="s2">"e418f5b4a15608b78185540ef583b9fc"</span><span class="p">,</span>
+    <span class="nt">"signature"</span><span class="p">:</span> <span class="s2">"FN6/9dnMfLh3wZj+cAFr82HcSvmwuniMQqUlRxSQ9WxRqFpYrjY2xlvDzLC5+qSZAHts8R7KR7HbjiI3SzVxHg=="</span><span class="p">,</span>
+    <span class="nt">"message"</span><span class="p">:{</span>
+        <span class="nt">"nonce"</span><span class="p">:</span> <span class="mi">12</span><span class="p">,</span>
+        <span class="nt">"payload"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">"NewOrder"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"68f82819-723a-4b60-ad6b"</span><span class="p">,</span>
+                <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+                <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span><span class="p">,</span>
+                <span class="nt">"quantity"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+                <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"limit"</span><span class="p">,</span>
+                <span class="nt">"price"</span><span class="p">:</span> <span class="mf">788.12</span><span class="p">,</span>
+                <span class="nt">"timeInForce"</span><span class="p">:</span> <span class="s2">"GTC"</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<p><i><i>Parameters:</i></i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clientOrderId</code></td>
+<td>string</td>
+<td>Unique order ID generated by client. From 8 to 32 characters</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>string</td>
+<td>Currency symbol traded on HitBTC exchange</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>
+<code>buy</code>, <code>sell</code>
+</td>
+<td>Order side</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>integer</td>
+<td>Quantity, in lots</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>
+<code>limit</code> or <code>market</code>
+</td>
+<td>Order type. Only <code>limit</code> orders are currently supported</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>decimal</td>
+<td>Price, in currency units, consider price steps</td>
+</tr>
+<tr>
+<td><code>timeInForce</code></td>
+<td>
+<code>GTC</code> - Good-Til-Canceled <br><code>IOC</code> - Immediate-Or-Cancel<br><code>FOK</code> - Fill-Or-Kill</td>
+<td>Time in force</td>
+</tr>
+</tbody>
+</table>
+
+<h3>
+<a name="ordercancel" class="anchor" href="#ordercancel"><span class="octicon octicon-link"></span></a>
+<a name="OrderCancel"></a>OrderCancel</h3>
+
+<p><i>Example:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"apikey"</span><span class="p">:</span> <span class="s2">"e418f5b4a15608b78185540ef583b9fc"</span><span class="p">,</span>
+    <span class="nt">"signature"</span><span class="p">:</span> <span class="s2">"FN6/9dnMfLh3wZj+cAFr82HcSvmwuniMQqUlRxSQ9WxRqFpYrjY2xlvDzLC5+qSZAHts8R7KR7HbjiI3SzVxHg=="</span><span class="p">,</span>
+    <span class="nt">"message"</span><span class="p">:{</span>
+        <span class="nt">"nonce"</span><span class="p">:</span> <span class="mi">12</span><span class="p">,</span>
+        <span class="nt">"payload"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">"OrderCancel"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"68f82819-723a-4b60-ad6b"</span><span class="p">,</span>
+                <span class="nt">"cancelRequestClientOrderId"</span><span class="p">:</span>   <span class="s2">"2c4d7127-6fbc-450c-b851-c6c1e8954545"</span><span class="p">,</span>
+                <span class="nt">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+                <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<p><i><i>Parameters:</i></i></p>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clientOrderId</code></td>
+<td>string</td>
+<td>
+<code>clientOrderId</code> parameter sent in <code>NewOrder</code> message</td>
+</tr>
+<tr>
+<td><code>cancelRequestClientOrderId</code></td>
+<td>string</td>
+<td>Unqiue ID generated by client, from 8 to 32 characters</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>string</td>
+<td>Currency symbol traded on HitBTC exchange</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>
+<code>buy</code>, <code>sell</code>
+</td>
+<td>Order side</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>
+<code>limit</code> or <code>market</code>
+</td>
+<td>Order type. Only <code>limit</code> orders are currently supported</td>
+</tr>
+</tbody>
+</table>
+
+<h3>
+<a name="executionreport" class="anchor" href="#executionreport"><span class="octicon octicon-link"></span></a>
+<a name="ExecutionReport"></a>ExecutionReport</h3>
+
+<p><i>Example:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"ExecutionReport"</span><span class="p">:{</span>
+        <span class="nt">"orderId"</span><span class="p">:</span> <span class="s2">"64283442"</span><span class="p">,</span>
+        <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"68f82819-723a-4b60-ad6b"</span><span class="p">,</span>
+        <span class="nt">"execReportType"</span><span class="p">:</span> <span class="s2">"new"</span><span class="p">,</span>
+        <span class="nt">"orderStatus"</span><span class="p">:</span> <span class="s2">"new"</span>
+        <span class="s2">"symbol"</span><span class="p">:</span> <span class="s2">"BTCUSD"</span><span class="p">,</span>
+        <span class="nt">"side"</span><span class="p">:</span> <span class="s2">"buy"</span><span class="p">,</span>
+        <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">1346691273926</span><span class="p">,</span>
+        <span class="nt">"price"</span><span class="p">:</span> <span class="mf">690.99</span><span class="p">,</span>
+        <span class="nt">"quantity"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="nt">"type"</span><span class="p">:</span> <span class="s2">"limit"</span><span class="p">,</span>
+        <span class="nt">"timeInForce"</span><span class="p">:</span> <span class="s2">"GTC"</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<p>The following fields are used in <code>ExecutionReport</code> object:</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>orderId</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>Order ID on the Exchange</td>
+</tr>
+<tr>
+<td><code>clientOrderId</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>
+<code>clientOrderId</code> sent in <code>NewOrder</code> message (see <a href="#neworder">/api/1/trading/new_order</a>)</td>
+</tr>
+<tr>
+<td><code>execReportType</code></td>
+<td>Yes</td>
+<td>
+<code>new</code> <br> <code>canceled</code> <br> <code>rejected</code> <br> <code>expired</code> <br> <code>trade</code> <br> <code>status</code>
+</td>
+<td>Execution report type</td>
+</tr>
+<tr>
+<td><code>orderStatus</code></td>
+<td>Yes</td>
+<td>
+<code>new</code> <br> <code>partiallyFilled</code> <br> <code>filled</code> <br> <code>canceled</code> <br> <code>rejected</code> <br> <code>expired</code>
+</td>
+<td>Order status</td>
+</tr>
+<tr>
+<td><code>orderRejectReason</code></td>
+<td>Yes - for orders in <code>rejected</code> state</td>
+<td>
+<code>unknownSymbol</code> <br> <code>exchangeClosed</code> <br><code>orderExceedsLimit</code> <br> <code>unknownOrder</code> <br> <code>duplicateOrder</code> <br> <code>unsupportedOrder</code> <br> <code>unknownAccount</code> <br> <code>other</code>
+</td>
+<td>Reason of rejection. Relevant only for orders in rejected state</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>Yes</td>
+<td>string, e.g. <code>BTCUSD</code>
+</td>
+<td>Currency symbol traded on HitBTC exchange (see <a href="#cursymbols">Currency symbols</a>)</td>
+</tr>
+<tr>
+<td><code>side</code></td>
+<td>Yes</td>
+<td>
+<code>buy</code> or <code>sell</code>
+</td>
+<td>Side of a trade</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>No</td>
+<td>integer</td>
+<td>UTC timestamp in milliseconds</td>
+</tr>
+<tr>
+<td><code>price</code></td>
+<td>No</td>
+<td>decimal</td>
+<td>Price of an order</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>Yes</td>
+<td>integer</td>
+<td>Order quantity in lots</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>Yes</td>
+<td><code>limit</code></td>
+<td>Type of an order. Only <code>limit</code> orders are currently supported</td>
+</tr>
+<tr>
+<td><code>timeInForce</code></td>
+<td>Yes</td>
+<td>
+<code>GTC</code> - Good-Til-Canceled <br><code>IOC</code> - Immediate-Or-Cancel<br><code>FOK</code> - Fill-Or-Kill<br><code>DAY</code> - day orders&lt;</td>
+<td>Time in force</td>
+</tr>
+<tr>
+<td><code>tradeId</code></td>
+<td>Yes - for trades</td>
+<td>integer</td>
+<td>Trade ID on the exchange</td>
+</tr>
+<tr>
+<td><code>lastQuantity</code></td>
+<td>Yes - for trades</td>
+<td>integer</td>
+<td>Last quantity</td>
+</tr>
+<tr>
+<td><code>lastPrice</code></td>
+<td>Yes - for trades</td>
+<td>decimal</td>
+<td>Last price</td>
+</tr>
+<tr>
+<td><code>leavesQuantity</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Leaves quantity</td>
+</tr>
+<tr>
+<td><code>cumQuantity</code></td>
+<td>No</td>
+<td>integer</td>
+<td>Cumulative quantity</td>
+</tr>
+<tr>
+<td><code>averagePrice</code></td>
+<td>No</td>
+<td>decimal</td>
+<td>Average price. Equals 0 if <code>cumQuantity</code>=0</td>
+</tr>
+</tbody>
+</table>
+
+<h3>
+<a name="cancelreject" class="anchor" href="#cancelreject"><span class="octicon octicon-link"></span></a>
+<a name="CancelReject"></a>CancelReject</h3>
+
+<p><i>Example:</i></p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span><span class="nt">"CancelReject"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">"clientOrderId"</span><span class="p">:</span> <span class="s2">"68f82819-723a-4b60-ad6b"</span><span class="p">,</span>
+    <span class="nt">"cancelRequestClientOrderId"</span><span class="p">:</span> <span class="s2">"2c4d7127-6fbc-450c-b851"</span><span class="p">,</span>
+    <span class="nt">"rejectReasonCode"</span><span class="p">:</span> <span class="s2">"orderNotFound"</span><span class="p">,</span>
+    <span class="nt">"rejectReasonText"</span><span class="p">:</span> <span class="s2">"Order not found"</span><span class="p">,</span>
+    <span class="nt">"timestamp"</span><span class="p">:</span> <span class="mi">726892347829</span>
+<span class="p">}}</span>
+</pre></div>
+
+<p>The following fields are used in <code>CancelReject</code> object:</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cancelRequestClientOrderId</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>
+<code>cancelRequestClientOrderId</code> parameter from <a href="#ordercancel"><code>OrderCancel</code></a>
+</td>
+</tr>
+<tr>
+<td><code>clientOrderId</code></td>
+<td>Yes</td>
+<td>string</td>
+<td>
+<code>clientOrderId</code> parameter from <a href="#ordercancel"><code>OrderCancel</code></a>
+</td>
+</tr>
+<tr>
+<td><code>rejectReasonCode</code></td>
+<td>Yes</td>
+<td>
+<code>orderNotFound</code> <br> <code>unknownSymbol</code> <br> <code>unknownUser</code> <br> <code>other</code>
+</td>
+<td>Code of the reason why the order was cancelled</td>
+</tr>
+<tr>
+<td><code>rejectReasonText</code></td>
+<td>No</td>
+<td>string</td>
+<td>Optional text explaining reject reason</td>
+</tr>
+</tbody>
+</table>
+
+<h2>
+<a name="sample-code" class="anchor" href="#sample-code"><span class="octicon octicon-link"></span></a>
+<a name="sample"></a>Sample code</h2>
+
+<h3>
+<a name="nodejs-snippet-message-signature" class="anchor" href="#nodejs-snippet-message-signature"><span class="octicon octicon-link"></span></a>Node.js snippet: message signature</h3>
+
+<div class="highlight highlight-javascript"><pre>    <span class="kd">var</span> <span class="nx">crypto</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">'crypto'</span><span class="p">);</span>
+
+    <span class="p">...</span>
+
+    <span class="kd">var</span> <span class="nx">msg</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">'apikey'</span><span class="o">:</span> <span class="nx">apikey</span><span class="p">,</span>
+        <span class="s1">'signature'</span><span class="o">:</span> <span class="s1">''</span><span class="p">,</span>
+        <span class="s1">'message'</span><span class="o">:</span> <span class="p">{</span>
+            <span class="s1">'nonce'</span><span class="o">:</span> <span class="nx">nonce</span><span class="p">,</span>
+            <span class="s1">'payload'</span><span class="o">:</span> <span class="p">{</span>
+                <span class="s1">'NewOrder'</span><span class="o">:</span> <span class="p">{</span>
+                    <span class="s1">'clientOrderId'</span><span class="o">:</span> <span class="nx">clientOrderId</span><span class="p">,</span>
+                    <span class="s1">'symbol'</span><span class="o">:</span> <span class="nx">symbol</span><span class="p">,</span>
+                    <span class="s1">'side'</span><span class="o">:</span> <span class="nx">side</span><span class="p">,</span>
+                    <span class="s1">'quantity'</span><span class="o">:</span> <span class="nx">quantity</span><span class="p">,</span>
+                    <span class="s1">'type'</span><span class="o">:</span> <span class="nx">type</span><span class="p">,</span>
+                    <span class="s1">'price'</span><span class="o">:</span> <span class="nx">price</span><span class="p">,</span>
+                    <span class="s1">'timeInForce'</span><span class="o">:</span> <span class="nx">timeInForce</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">};</span>
+    <span class="nx">msg</span><span class="p">.</span><span class="nx">signature</span> <span class="o">=</span> <span class="nx">crypto</span><span class="p">.</span><span class="nx">createHmac</span><span class="p">(</span><span class="s1">'sha512'</span><span class="p">,</span> <span class="nx">secretkey</span><span class="p">).</span><span class="nx">update</span><span class="p">(</span><span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">msg</span><span class="p">.</span><span class="nx">message</span><span class="p">)).</span><span class="nx">digest</span><span class="p">(</span><span class="s1">'base64'</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">msg</span><span class="p">);</span>
+</pre></div>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/hitbtc-com">hitbtc-com</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-40524102-3");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+  </body>
+</html>

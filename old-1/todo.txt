@@ -1,0 +1,34 @@
+- convert to poco
+- add socket.io
+
+STATUS:
+- basic classes for communication, missing socket.io, need to decide on lib
+- hacked together csv code for bitcoincharts.com
+
+NEED:
+- to read and store ordertable history
+- to simulate a trend line calculation going over past history to see how well it predicts future
+
+IDEAS:
+- could compose code with target timescale i.e. say I want to engage things X frequently
+(daily, hourly, monthly)
+  : need to find trend such that value crosses over trend that often, needs to be so far apart
+
+CONCEPTS:
+- generic view of trade data
+  . start time, end time, size of average window
+- trading strategy
+  . for example:
+    . compose a line with std deviation, buy when > stddev, sell when < stddev
+    . abandon strategy if > 1.5 * stddev away
+  . if we can compartmentalize this into a class we can throw it at the history and decide how
+    it performs in various ways
+- "wallet"
+  . currencies, for each:
+    . total amount
+    . set of currencies represented, value in those currencies
+  . trading fee?
+  
+
+
+
