@@ -7,3 +7,7 @@
 [submodule "python-delimitedfile"]
 	path = python-delimitedfile
 	url = https://github.com/Community-Maintenance/python-delimitedfile.git
+[submodule "data/BTS-BTC"]
+	path = data/BTS-BTC
+	url = ./data/BTS-BTC
+	datalad-id = e9f875e2-1292-4484-bd69-4786e1dd24fb
