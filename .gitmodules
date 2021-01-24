@@ -11,3 +11,7 @@
 	path = data/CNY-BTS
 	url = ./data/CNY-BTS
 	datalad-id = ee1625a3-d6df-4abc-a1c4-7f242ea0e03b
+[submodule "data/BPSCX-BTS"]
+	path = data/BPSCX-BTS
+	url = ./data/BPSCX-BTS
+	datalad-id = 86fbf309-c8ae-4301-b958-46de953302b0
