@@ -15,3 +15,7 @@
 	path = data/BPSCX-BTS
 	url = ./data/BPSCX-BTS
 	datalad-id = 86fbf309-c8ae-4301-b958-46de953302b0
+[submodule "data/RUDEX.EOS-BTS"]
+	path = data/RUDEX.EOS-BTS
+	url = ./data/RUDEX.EOS-BTS
+	datalad-id = ab04a591-7ad4-4ddd-84d3-c9575cdcd68c
