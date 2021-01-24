@@ -7,3 +7,7 @@
 [submodule "python-delimitedfile"]
 	path = python-delimitedfile
 	url = https://github.com/Community-Maintenance/python-delimitedfile.git
+[submodule "data/CNY-BTS"]
+	path = data/CNY-BTS
+	url = ./data/CNY-BTS
+	datalad-id = ee1625a3-d6df-4abc-a1c4-7f242ea0e03b
