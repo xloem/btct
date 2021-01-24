@@ -2,6 +2,10 @@
 # -*- coding: utf-8 -*-
 import logging
 
+## for debugging connection errors
+#import websocket
+#websocket.enableTrace(True)
+
 ### TO DOWNLOAD TRADES FROM PREVIOUS MONTHS
 ### WE MUST USE blockchain.rpc.get_trade_history_by_sequence
 #### based on the sequence desired to start from
@@ -184,8 +188,15 @@ import sys
 sys.stdout.flush()
 sys.stderr.flush()
 
-bitshares = BitShares(node="wss://node.bitshares.eu", num_retries=-1)
-bitshares.connect()
+## IF IT CONNECTS TO THE WRONG NODE, YOU CAN CHANGE DEFAULT NODE WITH
+## THE CLI TOOL `uptick`: `uptick set node <url>`
+## YOU CAN SEE WORKING NODES IN THE JS UI, e.g. at https://develop.bitshares.org/
+#bitshares = BitShares(node="wss://node.bitshares.eu", num_retries=-1)
+bitshares = BitShares(node='wss://api.bts.mobi/ws', num_retries=-1)
+# connect is an internal function.  it expects the node passed.
+#print('about-toconnect')
+#bitshares.connect() # node= is not being passed here.  it defaults to node.bitshares.eu, which is down.
+#print('connection-done')
 
 #def get_all_assets():
 #    assets = {}
@@ -236,7 +247,7 @@ def on_tx(data):
                 #        print(trade)
                 #        print(trade.json())
 
-notify = Notify(bitshares=bitshares, markets=list(), on_tx=on_tx)
+notify = Notify(bitshares=bitshares, markets=list(), on_tx=on_tx, on_market=None)
 notify.listen()
 
 

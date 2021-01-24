@@ -19,3 +19,7 @@
 	path = data/RUDEX.EOS-BTS
 	url = ./data/RUDEX.EOS-BTS
 	datalad-id = ab04a591-7ad4-4ddd-84d3-c9575cdcd68c
+[submodule "data/GDEX.EOS-BTS"]
+	path = data/GDEX.EOS-BTS
+	url = ./data/GDEX.EOS-BTS
+	datalad-id = fa6c61b6-6c15-46ef-9f1b-1385395f9128
