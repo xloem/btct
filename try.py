@@ -10,6 +10,15 @@ import logging
 ### WE MUST USE blockchain.rpc.get_trade_history_by_sequence
 #### based on the sequence desired to start from
 
+# i think self.market.trades calles get_trade_history under the hood,
+# which returns only 100 trades.  then get_trade_history_by_sequence can get the rest.
+# from bitshares.utils import formatTime # formats to unix timestamp
+# base = self.market['base']['symbol']
+# quote = self.market['quote']['symbol']
+# trades = self.market.blockchain.rpc.get_trade_history(base, quote, formatTime(endtime), formatTime(starttime), 100)
+# endsequence = trades[-1]['sequence'] # fields are strings and are 'sequence', 'date' (iso), 'price', 'amount', 'value', 'type' ('sell'/'buy'), 'side1_account_id', 'side2_account_id'; data is latest-to-earliest.
+# nexttrades = self.market.blockchain.rpc.get_trade_history_by_sequence(base, quote, endsequence, formatTime(starttime), 100)
+
 # for quick fix, record earliest sequence, and keep moving backwards, for past history
 # could latest sequence could come from on_tx =S also trades gives it
 
@@ -21,6 +30,7 @@ from bitshares.price import Price, Order
 from bitshares.market import Market
 from bitshares.notify import Notify
 from bitsharesbase.operations import getOperationClassForId,getOperationNameForId
+import bitshares.utils as bitsharesutils
 
 import datalad
 import datalad.api
@@ -138,29 +148,36 @@ class history:
 
     def download_chunk_needs_lock(self, chunk = datechunk(datetime.now()).previous()):
         today_chunk = datechunk(time=datetime.now())
-        starttime = chunk.time
-        stoptime = datetime.fromtimestamp(chunk.next().time.timestamp() - 1)
+        starttime = bitsharesutils.formatTime(chunk.time)
+        stoptime = bitsharesutils.formatTime(datetime.fromtimestamp(chunk.next().time.timestamp() - 1))
 
         filepath = self.filepath_for_chunk(chunk)
         keepgoing = True
         try:
             log.warning(f'Writing {filepath} {starttime}-{stoptime}...')
-            if chunk.id() == today_chunk.id():
+            #if chunk.id() == today_chunk.id():
+            if True:
                 with delimitedfile(filepath) as file:
                     file.clear()
                     count = 0
                     last_sequence = None
                     while keepgoing:
-                        history = self.market.trades(limit=1000000,start=starttime,stop=stoptime)
+                        if last_sequence is None:
+                            history = self.market.blockchain.rpc.get_trade_history(self.market['base']['symbol'], self.market['quote']['symbol'], stoptime, starttime, 100)
+                        else:
+                            history = self.market.blockchain.rpc.get_trade_history_by_sequence(self.market['base']['symbol'], self.market['quote']['symbol'], last_sequence, starttime, 100)
+                        #last_sequence = history[-1]['sequence']
+                        #history = self.market.trades(limit=1000000,start=starttime,stop=stoptime)
                         keepgoing = False;
                         for trade in history:
-                            # trade.value is the base amount
-                            # trade.amount is the quote amount
-                            if last_sequence is not None and trade['sequence'] >= last_sequence:
-                                continue
-                            if trade['time'] < stoptime:
-                                stoptime = trade['time']
-                            file.append(f"{int(trade['time'].timestamp())},{trade['type']},{trade['value']},{trade['amount']},{trade['sequence']}")
+                            base_amount = trade['value']
+                            quote_amount = trade['amount']
+                            timestamp = bitsharesutils.formatTimeString(trade['date']).timestamp()
+                            #if last_sequence is not None and trade['sequence'] >= last_sequence:
+                            #    continue
+                            #if trade['time'] < stoptime:
+                            #    stoptime = trade['time']
+                            file.append(f"{timestamp},{trade['type']},{base_amount},{quote_amount},{trade['sequence']}")
                             last_sequence = trade['sequence']
                             keepgoing = True
                             count = count + 1
@@ -168,13 +185,13 @@ class history:
                             log.warning(f'Wrote {count} trades ...')
                 if not 'start-sequence' in self.files:
                     self.files['start-sequence'] = last_sequence
-            elif chunk.id() < today_chunk.id():
-                # stub
-                if not 'start-seconds' in self.files or chunk.next().id() == int(self.files['start-seconds']):
-                    self.files['start-seconds'] = chunk.id()
-                    self.files['start-sequence'] = last_sequence
-                if not 'end-seconds' in self.files or chunk.previous().id() == int(self.files['end-seconds']):
-                    self.files['end-seconds'] = chunk.id()
+            #elif chunk.id() < today_chunk.id():
+            #    # stub
+            #    if not 'start-seconds' in self.files or chunk.next().id() == int(self.files['start-seconds']):
+            #        self.files['start-seconds'] = chunk.id()
+            #        self.files['start-sequence'] = last_sequence
+            #    if not 'end-seconds' in self.files or chunk.previous().id() == int(self.files['end-seconds']):
+            #        self.files['end-seconds'] = chunk.id()
             return True
         except FileExistsError:
             return False
