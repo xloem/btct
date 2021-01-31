@@ -35,3 +35,7 @@
 	path = data/RUDEX.USDT-BTS
 	url = ./data/RUDEX.USDT-BTS
 	datalad-id = f0903c3f-7f45-4abd-a5f6-a7c863cd2947
+[submodule "data/COMPUMATRIX.USD-COMPUMATRIX.BTC"]
+	path = data/COMPUMATRIX.USD-COMPUMATRIX.BTC
+	url = ./data/COMPUMATRIX.USD-COMPUMATRIX.BTC
+	datalad-id = 2652ea0f-62ae-4d1c-a3e4-5c85c7d8fdaa
