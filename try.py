@@ -3,10 +3,12 @@
 import logging
 
 ### TO DOWNLOAD TRADES FROM PREVIOUS MONTHS
-### WE MUST USE blockchain.rpc.get_trade_history_by_sequence
+### WE MUST USE Market.blockchain.rpc.get_trade_history_by_sequence(base, quote, sequence, starttime, limit)
+####### each item of result has a "sequence" key.  a stoptime can be passed for the first.
 #### based on the sequence desired to start from
 
-# for quick fix, record earliest sequence, and keep moving backwards, for past history
+# for quick fix, record earliest "sequence", and keep moving backwards, for past history
+############# it looks like the last item is the earliest.
 # could latest sequence could come from on_tx =S also trades gives it
 
 from bitshares import BitShares
@@ -17,6 +19,8 @@ from bitshares.price import Price, Order
 from bitshares.market import Market
 from bitshares.notify import Notify
 from bitsharesbase.operations import getOperationClassForId,getOperationNameForId
+
+import grapheneapi.exceptions
 
 import datalad
 import datalad.api
@@ -184,8 +188,6 @@ import sys
 sys.stdout.flush()
 sys.stderr.flush()
 
-bitshares = BitShares(node="wss://node.bitshares.eu", num_retries=-1)
-bitshares.connect()
 
 #def get_all_assets():
 #    assets = {}
@@ -236,8 +238,26 @@ def on_tx(data):
                 #        print(trade)
                 #        print(trade.json())
 
-notify = Notify(bitshares=bitshares, markets=list(), on_tx=on_tx)
-notify.listen()
+from random import shuffle
+nodes = 'wss://node.bitshares.eu wss://nexus01.co.uk/ws wss://dex.iobanker.com/ws wss://ws.gdex.top wss://api.weaccount.cn wss://api.bts.mobi/ws wss://btsws.roelandp.nl/ws wss://api.bitshares.bhuz.info/ws wss://api.btsgo.net/ws wss://bts.open.icowallet.net/ws wss://freedom.bts123.cc:15138/ wss://bitshares.bts123.cc:15138/ wss://api.bts.ai wss://bts-seoul.clockwork.gr wss://api.61bts.com wss://api.dex.trading/ wss://api.bitshares.org/ws wss://us.api.bitshares.org/ws wss://asia.api.bitshares.org/ws wss://citadel.li/node wss://api-bts.liondani.com/ws wss://public.xbts.io/ws wss://cloud.xbts.io/ws wss://node.xbts.io/ws wss://api.gbacenter.org/ws wss://api.cnvote.vip:888/ wss://singapore.bitshares.im/ws wss://newyork.bitshares.im/ws wss://node.testnet.bitshares.eu wss://testnet.dex.trading/ wss://testnet.xbts.io/ws wss://testnet.bitshares.im/ws'.split(' ')
+shuffle(nodes)
+nodes[0:0] = ['ws://127.0.0.1:8090']
+print('nodes', nodes)
+for node in nodes:
+    try:
+        print('attempt', node)
+        bitshares = BitShares(node=node, num_retries=2)
+        bitshares.info()
+        #bitshares.connect()
+        break
+    except grapheneapi.exceptions.NumRetriesReached as exception:
+        print('NumRetriesReached')
+        bitshares = exception
+if bitshares is Exception:
+    raise bitshares
+
+#notify = Notify(bitshares=bitshares, markets=list(), on_tx=on_tx)
+#notify.listen()
 
 
 
@@ -245,6 +265,7 @@ block=bitshares.rpc.get_block(1)
 print(block)
 
 market = Market("BTC:BTS", blockchain_instance=bitshares)
+history(market)
 
 async def test_orderbook(market, place_order):
     orderbook = await market.orderbook()
