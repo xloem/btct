@@ -31,3 +31,7 @@
 	path = data/RUDEX.BTC-RUDEX.ETH
 	url = ./data/RUDEX.BTC-RUDEX.ETH
 	datalad-id = 89972168-5aa8-47ff-b586-11a222b16feb
+[submodule "data/RUDEX.USDT-BTS"]
+	path = data/RUDEX.USDT-BTS
+	url = ./data/RUDEX.USDT-BTS
+	datalad-id = f0903c3f-7f45-4abd-a5f6-a7c863cd2947
