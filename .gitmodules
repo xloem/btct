@@ -47,3 +47,7 @@
 	path = data/TWENTIX.BEOSLP-BTS
 	url = ./data/TWENTIX.BEOSLP-BTS
 	datalad-id = 71ec9665-0237-40a2-acd5-08f9558b74fc
+[submodule "data/RUDEX.EOS-RUDEX.BTC"]
+	path = data/RUDEX.EOS-RUDEX.BTC
+	url = ./data/RUDEX.EOS-RUDEX.BTC
+	datalad-id = 59eccd2f-4d39-4ee1-8daa-837a1fdf8593
