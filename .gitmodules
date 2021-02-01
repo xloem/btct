@@ -43,3 +43,7 @@
 	path = data/COMPUMATRIX.USD-COMPUMATRIX.BTC
 	url = ./data/COMPUMATRIX.USD-COMPUMATRIX.BTC
 	datalad-id = 2652ea0f-62ae-4d1c-a3e4-5c85c7d8fdaa
+[submodule "data/TWENTIX.BEOSLP-BTS"]
+	path = data/TWENTIX.BEOSLP-BTS
+	url = ./data/TWENTIX.BEOSLP-BTS
+	datalad-id = 71ec9665-0237-40a2-acd5-08f9558b74fc
