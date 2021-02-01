@@ -281,8 +281,8 @@ for node in nodes:
         bitshares.info()
         #bitshares.connect()
         break
-    except grapheneapi.exceptions.NumRetriesReached as exception:
-        print('NumRetriesReached')
+    except Exception as exception:
+        print(exception)
         bitshares = exception
 if bitshares is Exception:
     raise bitshares
