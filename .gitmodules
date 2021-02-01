@@ -55,3 +55,7 @@
 	path = data/RUDEX.XMR-RUDEX.BTC
 	url = ./data/RUDEX.XMR-RUDEX.BTC
 	datalad-id = d2a07b3e-5034-4b99-a20a-df5b8389a986
+[submodule "data/DELION.LTC-DELION.BTC"]
+	path = data/DELION.LTC-DELION.BTC
+	url = ./data/DELION.LTC-DELION.BTC
+	datalad-id = 277cbe08-89bd-4d5a-a119-cc04f75cd24d
