@@ -51,3 +51,7 @@
 	path = data/RUDEX.EOS-RUDEX.BTC
 	url = ./data/RUDEX.EOS-RUDEX.BTC
 	datalad-id = 59eccd2f-4d39-4ee1-8daa-837a1fdf8593
+[submodule "data/RUDEX.XMR-RUDEX.BTC"]
+	path = data/RUDEX.XMR-RUDEX.BTC
+	url = ./data/RUDEX.XMR-RUDEX.BTC
+	datalad-id = d2a07b3e-5034-4b99-a20a-df5b8389a986
