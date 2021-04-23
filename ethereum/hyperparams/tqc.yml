@@ -1,0 +1,16 @@
+oit-v1:
+  env_wrapper: sb3_contrib.common.wrappers.TimeFeatureWrapper
+  n_timesteps: !!float 1e7
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
+  top_quantiles_to_drop_per_net: 5
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"

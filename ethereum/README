@@ -7,3 +7,6 @@ Ethereum nodes.  Please update parenthesised information if wrong or unhelpful.
 - c++ (large dev history) https://github.com/ethereum/aleth
 - go (large userbase) https://github.com/ethereum/go-ethereum
 - rust (new, active) https://github.com/ethereum/openethereum
+
+1inch on-chain protocol:
+- https://github.com/1inch/1inchProtocol
