@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="author" content="Zachary Wolff ">
+<meta name="description" content="⟴ This is a technical look at making trades with 1 Inch DEX using Web3 and Python. Feel free to start with a less technical overview or skip directly to the code base here. If you&amp;rsquo;re interested in a similar guide that uses Javascript have a look over here! ⬲
+ Part 1: 1 Inch DEX using Python &amp;amp; Web3 - Making Contract Calls I&amp;rsquo;m going to walk through an example of how you can use Web3." />
+<meta name="keywords" content="Ethereum, DeFi, ERC20, ERC721, ETH, 1Inch, DEX, ethereum, trading, web3, python" />
+<meta name="robots" content="noodp" />
+<meta name="theme-color" content="" />
+<link rel="canonical" href="../../projects/1-inch-python-trades/" />
+
+
+    <title>
+        
+            1 Inch Python &amp; Web3 Trading :: WolfDeFi  — In Maths We Trust
+        
+    </title>
+
+
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.2.1/css/flag-icon.min.css" rel="stylesheet"
+    type="text/css">
+
+
+
+<link rel="stylesheet" href="../../main.min.5dcefbf8102eb536dd3e2de53ffebfa58599ab2435c241a0db81728a5e015f2e.css">
+
+
+
+
+    <link rel="apple-touch-icon" sizes="180x180" href="../../apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../../favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../../favicon-16x16.png">
+    <link rel="manifest" href="../../site.webmanifest">
+    <link rel="mask-icon" href="../../safari-pinned-tab.svg" color="#252627">
+    <link rel="shortcut icon" href="../../favicon.ico">
+    <meta name="msapplication-TileColor" content="#252627">
+    <meta name="theme-color" content="#252627">
+
+<meta itemprop="name" content="1 Inch Python &amp; Web3 Trading">
+<meta itemprop="description" content="⟴ This is a technical look at making trades with 1 Inch DEX using Web3 and Python. Feel free to start with a less technical overview or skip directly to the code base here. If you&rsquo;re interested in a similar guide that uses Javascript have a look over here! ⬲
+ Part 1: 1 Inch DEX using Python &amp; Web3 - Making Contract Calls I&rsquo;m going to walk through an example of how you can use Web3.">
+<meta itemprop="datePublished" content="2020-04-18T14:39:08-06:00" />
+<meta itemprop="dateModified" content="2020-04-18T14:39:08-06:00" />
+<meta itemprop="wordCount" content="1744">
+<meta itemprop="image" content="/"/>
+
+
+
+<meta itemprop="keywords" content="1Inch,DEX,ethereum,trading,web3,python," />
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:image" content="/"/>
+
+<meta name="twitter:title" content="1 Inch Python &amp; Web3 Trading"/>
+<meta name="twitter:description" content="⟴ This is a technical look at making trades with 1 Inch DEX using Web3 and Python. Feel free to start with a less technical overview or skip directly to the code base here. If you&rsquo;re interested in a similar guide that uses Javascript have a look over here! ⬲
+ Part 1: 1 Inch DEX using Python &amp; Web3 - Making Contract Calls I&rsquo;m going to walk through an example of how you can use Web3."/>
+
+
+
+
+
+    <meta property="article:published_time" content="2020-04-18 14:39:08 -0600 -0600" />
+
+
+
+
+
+
+
+
+    </head>
+
+    <body class="dark-theme">
+        <div class="container">
+            <header class="header">
+    <span class="header__inner">
+        <a href="../../" style="text-decoration: none;">
+    <div class="logo">
+        
+            <span class="logo__mark">></span>
+            <span class="logo__text">$ deploy TreeFund.sol</span>
+            <span class="logo__cursor" style="background-color:#2196f3"></span>
+        
+    </div>
+</a>
+
+
+        <span class="header__right">
+            
+                <nav class="menu">
+    <ul class="menu__inner"><li><a href="../../posts/">Posts</a></li><li><a href="../../projects/">Projects</a></li><li><a href="../../about/">About</a></li>
+    </ul>
+</nav>
+
+                <span class="menu-trigger">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M0 0h24v24H0z" fill="none"/>
+                        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                    </svg>
+                </span>
+            
+
+            <span class="theme-toggle unselectable"><svg class="theme-toggler" width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M22 41C32.4934 41 41 32.4934 41 22C41 11.5066 32.4934 3 22
+  3C11.5066 3 3 11.5066 3 22C3 32.4934 11.5066 41 22 41ZM7 22C7
+  13.7157 13.7157 7 22 7V37C13.7157 37 7 30.2843 7 22Z"/>
+</svg>
+</span>
+        </span>
+    </span>
+</header>
+
+
+            <div class="content">
+                
+    <main class="post">
+
+        <div class="post-info">
+            
+            </p>
+        </div>
+
+        <article>
+            <h2 class="post-title"><a href="../../projects/1-inch-python-trades/">1 Inch Python &amp; Web3 Trading</a></h2>
+
+            
+
+            <div class="post-content">
+                <blockquote>
+<p>⟴ This is a technical look at making trades with 1 Inch DEX using Web3 and Python. Feel free to start with a <a href="https://wolfdefi.com/posts/2020/04/1-inch-python-web3-trading-scripts/">less technical overview</a> or <a href="https://gitlab.com/dentino/one-inch-trades">skip directly to the code base here</a>. If you&rsquo;re interested in a similar guide that uses <a href="https://ethereumdev.io/trading-and-arbitrage-on-ethereum-dex-get-the-rates-part-1/">Javascript have a look over here!</a> ⬲</p>
+</blockquote>
+<h3 id="part-1-1-inch-dex-using-python--web3---making-contract-calls">Part 1: 1 Inch DEX using Python &amp; Web3 - Making Contract Calls</h3>
+<p>I&rsquo;m going to walk through an example of how you can use Web3.Py to get quotes and make trades on 1 Inch Exchange. In the repository, there are examples of trading ETH &lt;&ndash;&gt; DAI|MCD.</p>
+<p>In this first part of the guide, I&rsquo;m going to walk through the steps we take to execute a contract call against the 1 Inch Split contract and retrieve a current quote for the price of 1 ETH in DAI on the exchange.</p>
+<p>In the next part of the guide, I will take you through the steps to make a DAI&ndash;&gt;SNX trade.</p>
+<h3 id="part-1-key-concepts">Part 1: Key Concepts</h3>
+<h4 id="setting-up-your-ethereum-account">Setting up your Ethereum Account</h4>
+<p>As a starting point, to execute trades using these scripts, you&rsquo;ll need to have an Ethereum account and the corresponding private key. While it seems likely that anyone reading this will already understand the risks associated with working directly with private keys, I&rsquo;ll go ahead and throw this out there anyway. <strong>If someone gets access to this private key, they can access all coins in that account.</strong></p>
+<p>Using a private key is a quick, easy way to test and execute raw transactions using Python and Web3, but if you&rsquo;re going to use these scripts in production, make sure you have a secure system for managing your private keys. Better yet, fork the repo and add support for other wallets :)</p>
+<p>That said, you can use something like <a href="https://www.mycrypto.com/">MyCrypto</a> to generate an account and get your private key quickly. Make sure to download and verify and the desktop client instead of doing anything in the browser.</p>
+<h5 id="1-set-your-ethereum-account">1) Set your Ethereum account</h5>
+<p>First, you will need to set the base account you&rsquo;ll be using to trade. You can do that by setting an environment variable in the same terminal window you&rsquo;re running the script from:</p>
+<p><code>export BASE_ACCOUNT='0x7777777777777777777777777777777'</code></p>
+<h5 id="2-set-the-private-key">2) Set the private key</h5>
+<blockquote>
+<p>巩 - For this part of the guide it&rsquo;s not required set your private key!</p>
+</blockquote>
+<p>Like the base account, you can set this from the terminal as an environment variable in the directory you&rsquo;re running the script from:</p>
+<p><code>export PRIVATE_KEY=&quot;&lt;your_private_key_goes_here&gt;&quot;</code></p>
+<p><strong>By adding a space before the <code>export</code> command, it will prevent the command from being saved into your bash history :)</strong></p>
+<p>Next, we&rsquo;ll look more into what 1 Inch is, how it works, and how to set your Ethereum provider to interact with the network.</p>
+<h4 id="trading-with-1-inch">Trading with 1 Inch</h4>
+<p>1 Inch exchange is a DEX aggregator. When you make a trade on 1 Inch, the contracts will go and look for the best price across a growing number of different DEXs. While you can adjust both the distribution of your order and which exchanges it will use, you can use reasonable defaults instead. Having these features is excellent because while it&rsquo;s easy to get started making trades, power users can also make tuning adjustments.</p>
+<p>1 Inch does offer an API that will allow you to make programmatic trades quickly. You will see some functions for that in the script too. The part that interests me the most, though, and what we&rsquo;re focused on in this guide, is using Web3.Py to make all interactions directly with the 1 Inch contracts on-chain.</p>
+<h4 id="setting-up-the-trade">Setting up the trade</h4>
+<p>1 Inch has elegantly abstracted away a great deal of the complexities and given us an excellent on-chain interface. You can find a copy of the contract on <a href="https://github.com/CryptoManiacsZone/1split">github here</a> and on-chain at <a href="https://etherscan.io/address/1split.eth">1split.eth</a>.</p>
+<p>Most importantly, for what we&rsquo;re doing, have a look directly at the <a href="https://github.com/CryptoManiacsZone/1split/blob/master/contracts/IOneSplit.sol">interface contract</a> functions:</p>
+<pre><code>contract IOneSplit is IOneSplitConsts {
+    function getExpectedReturn(
+        IERC20 fromToken,
+        IERC20 toToken,
+        uint256 amount,
+        uint256 parts,
+        uint256 disableFlags
+    )
+        public
+        view
+        returns(
+            uint256 returnAmount,
+            uint256[] memory distribution
+        );
+
+    function swap(
+        IERC20 fromToken,
+        IERC20 toToken,
+        uint256 amount,
+        uint256 minReturn,
+        uint256[] memory distribution,
+        uint256 disableFlags
+    ) public payable;
+}
+</code></pre><p>Based on this, we can see there are two main interaction points we&rsquo;ll be using. First, looking at the <code>getExpectedReturn</code> method we can see that it is set as <code>public</code> and <code>view</code>. <em>View</em> lets us know that we can make contract calls to the function without actually writing any data to the blockchain. We will start with this because we don&rsquo;t have to worry about losing Ethereum on failed transactions if we make a mistake. As you might expect, the purpose of this method is to give us information on what we can expect a given trade to return!</p>
+<p>Before we can make the contract call, we will make sure our connection to the Ethereum network is active.</p>
+<h5 id="3-establish-ethereum-provider">3) Establish Ethereum Provider</h5>
+<p>The most common way to connect to the Ethereum network seems to be using an Infura node. While there is a lot of discussion about how Infura could be a single centralized point of failure, a full digression on that is beyond the scope of this guide.</p>
+<p>What I will say is that if you&rsquo;re looking for a cool way to run an Ethereum node, <a href="https://dappnode.io/">check out DAppNode</a>. I have been running a DAppNode since 12/2019, and it is awesome. Either way, if you&rsquo;re using Infura (and that&rsquo;s what I&rsquo;ve used for the guide) simply <a href="https://infura.io/">get your Infura project ID</a> and set it in the script here:</p>
+<p><code>eth_provider_url = 'https://mainnet.infura.io/v3/&lt;your_Infura_project_id_here&gt;'</code></p>
+<p>When done it should look something like this:</p>
+<p><code>eth_provider_url = 'https://mainnet.infura.io/v3/asdf345dfg435345345'</code></p>
+<p>Now we will confirm our connection to the Ethereum network is active. In the top of the script there is a flag we will set to make sure we don&rsquo;t accidentally send transactions:</p>
+<p>change this:</p>
+<p><code>production = True</code></p>
+<p>to this:</p>
+<p><code>production = False</code></p>
+<p>Then you can run and test the script and know that you won&rsquo;t be making any trades. By default, the script will create a contract call to the <code>getExpectedReturn</code> method to check what we can expect for a 1 ETH &ndash;&gt; DAI trade.</p>
+<pre><code>$ python one_inch_trades.py
+
+2020-04-19 10:31:39,969 - __main__ - INFO - 1 ETH = 176.746129364100033347 DAI on 1 Inch right now!
+</code></pre><p>So we can see that it' working :) Let&rsquo;s take a look at precisely what we did there.</p>
+<pre><code># get price quote for 1 ETH in DAI right now
+
+ethereum_price = one_inch_get_quote(ethereum, mcd_contract_address, Web3.toWei(1, 'ether'))
+
+logger.info(&quot;1 ETH = {0} DAI on 1 Inch right now!&quot;.format(Web3.fromWei(ethereum_price[0], 'ether')))
+</code></pre><p>First we call the function: <code>one_inch_get_quote</code> with three parameters.
+The first parameter represents the _from_token Address, the second is the _to_token Address, and the third is the _amount of the coin we want to trade.</p>
+<p>What you&rsquo;ll notice is that in this case, we&rsquo;re passing the <code>ethereum</code> variable as our _from_token parameter. Earlier in script we can see that <code>ethereum</code> is set to <code>0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE</code>. What&rsquo;s that all about?</p>
+<p>Within an Ethereum contract that deals with ERC20 coins, it usually makes more sense to reference different tokens by their actual contract address (as opposed to a string or something). Because Ethereum is the mother of all ERC20 tokens and doesn&rsquo;t have a contract address, <code>0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE</code> is commonly used in contracts to reference Ethereum. As we&rsquo;ll see in a minute, this parameter maps to the <code>IERC20 fromToken</code> param in the 1 Inch split contract. Easy enough!</p>
+<p>It&rsquo;s also worth note, the guys at <a href="https://twitter.com/ethereumdevio">EthereumDevIO</a> pointed out that you can also use <code>0x0</code> in favor of the longer <code>0xEeeee..</code> address :)</p>
+<p>The second parameter is the _to_token and will map to the 1 Inch Split contract parameter <code>IERC20 toToken</code>. In this case, the important part is that we&rsquo;re dealing with the ERC20 contract address for the token, not the tokens' name or something. In the script I&rsquo;ve manually hardcoded the MCD/DAI contract address as can be seen here:</p>
+<pre><code>mcd_contract_address = Web3.toChecksumAddress('0x6b175474e89094c44da98b954eedeac495271d0f')  # DAI Token contract address
+</code></pre><p>The third parameter is _amount or value. I&rsquo;m pretty sure I shouldn&rsquo;t be using those terms interchangeably, and I&rsquo;ll try to get that cleaned up soon, but for now, that&rsquo;s what you get :)</p>
+<p>The _amount parameter is pretty straight forward except that I do want to point out I&rsquo;ve chosen to use the base unit of Ether in the script as it&rsquo;s more human-readable to me. At the lower levels and within contracts, the unit of Wei is used. As you can see, we use a built-in Web3 function to abstract away complexity and any floating-point style issues that could arise like this:</p>
+<p><code>Web3.toWei(1, 'ether')</code></p>
+<h4 id="making-a-contract-call">Making a contract call</h4>
+<p>In the example, we executed a contract call against the Ethereum blockchain (for free!) to get the current price of 1 ETH in DAI across a host of DEX&rsquo;s using 1 Inch. Let&rsquo;s take a look at how we made that call and the other parameters we sent with the request.</p>
+<pre><code>def one_inch_get_quote(_from_token, _to_token, _amount):
+    '''
+    Get quote data from one inch split contract using on-chain call
+    '''
+    # load our contract
+    one_inch_join = web3.eth.contract(
+        address=one_inch_split_contract, abi=one_inch_split_abi)
+
+    # make call request to contract on the Ethereum blockchain
+    contract_response = one_inch_join.functions.getExpectedReturn(
+        _from_token, _to_token, _amount, 100, 0).call({'from': base_account})
+
+    # logger.info(&quot;contract response: {0}&quot;.format(contract_response))
+    return contract_response
+</code></pre><p>First, we have to load up the contracts ABI. I&rsquo;m going to skip a more in-depth explanation of whats going on there for now, but in it&rsquo;s the simplest form, you can think of the ABI as a way for Web3 to know what functions are available on a given contract and what parameters they expect. As you can see early on in the script, we&rsquo;ve loaded the different contract ABI files themselves like this:</p>
+<pre><code>one_inch_split_abi = json.load(open('abi/one_inch_split.json', 'r'))
+mcd_abi = json.load(open('abi/mcd_join.json', 'r'))
+</code></pre><p>From within our one_inch_get_quote method we can then use Web.Py to load up the contracts ABI:</p>
+<pre><code>one_inch_join = web3.eth.contract(
+    address=one_inch_split_contract, abi=one_inch_split_abi)
+</code></pre><p>Using the <code>address</code> parameter, we also tell Web3 what the contract address on-chain is.</p>
+<p>From there we can simply make the the contract call using built in Web3 functions:</p>
+<pre><code>contract_response = one_inch_join.functions.getExpectedReturn(
+        _from_token, _to_token, _amount, 100, 0).call({'from': base_account})
+</code></pre><p>The final two parameters we can see are <code>100</code> and <code>0</code> these will map to the following fields in the 1 Inch Split contract:</p>
+<p><code>uint256 parts</code></p>
+<p>and</p>
+<p><code>uint256 disableFlags</code></p>
+<p>For more information on interacting with contracts using Web3, check out the <a href="https://web3py.readthedocs.io/en/stable/contracts.html">documentation here</a>.</p>
+<p>That wraps up part one of the guide. In part two, we&rsquo;ll dig into how we craft the raw transactions and approve the 1 Inch Split contract to spend our ERC20 tokens!</p>
+
+            </div>
+        </article>
+
+        <hr />
+
+        <div class="post-info">
+  				<p>
+  					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="../../tags/1inch">1Inch</a></span><span class="tag"><a href="../../tags/dex">DEX</a></span><span class="tag"><a href="../../tags/ethereum">ethereum</a></span><span class="tag"><a href="../../tags/trading">trading</a></span><span class="tag"><a href="../../tags/web3">web3</a></span><span class="tag"><a href="../../tags/python">python</a></span>
+  				</p>
+  			</div>
+
+        
+    </main>
+
+            </div>
+
+            
+                <footer class="footer">
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span>&copy; 2020</span>
+            
+                <span><a href="/cdn-cgi/l/email-protection#6812090b00091a11281f07040e0c0d0e01460b0705">Zachary Wolff</a></span>
+            
+            <span><a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></span>
+            <span> <a href="../../posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a></span>
+        </div>
+    </div>
+    <div class="footer__inner">
+        <div class="footer__content">
+            <span>Powered by <a href="https://gohugo.io">Hugo</a></span>
+            <span>Made with &#10084; by <a href="https://github.com/rhazdon">rhazdon</a></span>
+        </div>
+    </div>
+</footer>
+
+            
+        </div>
+
+        
+
+
+
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script type="text/javascript" src="../../bundle.min.2d5469329143160ae2456a69c3c76dc2d0a3b212b46afe291a51bd68650ed6f8697e001dab54f1c272c77ce08092a8c55e5bb4314e0ee334aab4b927ec896638.js" integrity="sha512-LVRpMpFDFgriRWppw8dtwtCjshK0av4pGlG9aGUO1vhpfgAdq1TxwnLHfOCAkqjFXlu0MU4O4zSqtLkn7IlmOA=="></script>
+
+
+
+    </body>
+</html>
