@@ -1,0 +1,9 @@
+Tutorial script.  Tutorial assumes you have it.
+- git clone https://gitlab.com/dentino/one-inch-trades.git
+
+Ethereum nodes.  Please update parenthesised information if wrong or unhelpful.
+- python (includes web3.py) https://github.com/ethereum/trinity
+    run `trinity` to start it
+- c++ (large dev history) https://github.com/ethereum/aleth
+- go (large userbase) https://github.com/ethereum/go-ethereum
+- rust (new, active) https://github.com/ethereum/openethereum
