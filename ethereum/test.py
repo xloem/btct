@@ -21,9 +21,9 @@ exp_manager = ExperimentManager(
         2,#-1,#args.save_freq, # save the model every n steps
         {},#args.hyperparams, # overwrite e.g. learning_rate:0.01 train_freq:10
         {},#args.env_kwargs, # kwarguments to the env
-        '',#args.trained_agent, # must be valid path to a .zip file
+        'trained_agent.zip',#args.trained_agent, # must be valid path to a .zip file
         True,#False,#args.optimize_hyperparameters, # run hyperparameter search
-        '.',#args.storage, # db path for distributed optimization
+        None,#args.storage, # db path for distributed optimization
         'oit',#args.study_name, # for distributed optimization
         10,#args.n_trials, # trials for hyperparam optimization
         4,#args.n_jobs, # parallel jobs for hyperparam optimization
@@ -42,9 +42,14 @@ exp_manager = ExperimentManager(
 
 model = exp_manager.setup_experiment()
 
-# Normal training
-if model is not None:
-    exp_manager.learn(model)
-    exp_manager.save_trained_model(model)
-else:
-    exp_manager.hyperparameters_optimization()
+import requests
+try:
+    # Normal training
+    if model is not None:
+        exp_manager.learn(model)
+        exp_manager.save_trained_model(model)
+    else:
+        exp_manager.hyperparameters_optimization()
+except requests.exceptions.HTTPError as e:
+    print(e)
+    print(e.response.text)

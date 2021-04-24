@@ -8,6 +8,7 @@ import time
 import stable_baselines3
 from stable_baselines3.common.env_checker import check_env
 import sb3_contrib
+from sqlitedict import SqliteDict
 
 # this the environment that one_inch_trades assumes
 curdir=os.path.abspath(os.curdir)
@@ -27,7 +28,6 @@ class oitenv(gym.Env):
         self._fiatidx = 0
         self._tokens = tokens
         self._indices = {token: index for index, token in enumerate(tokens)}
-        self._history = []
         self._timepoint = 0
         ntokens = len(self._tokens)
         # ethereum uses uint256s which aren't in numpy
@@ -37,39 +37,44 @@ class oitenv(gym.Env):
         #self._changes = np.array([0] * ntokens, dtype=np.float64)
 
         #self._last_observation = None
+        self._blocks = SqliteDict('./oit_{}.sqlite'.format('_'.join(self._tokens)), autocommit=True)
+        self._resetblock = int(next(self._blocks.keys(), oit.web3.eth.block_number))
 
         # each balance in each currency
         self.observation_space = gym.spaces.Box(-1.0, 1.0, (ntokens*ntokens,), np.float64)
         # amounts to trade
         self.action_space = gym.spaces.Box(-1.0, 1.0, (ntokens*ntokens,), np.float64)
-    def quote(self, from_token, to_token, amount):
+
+        self.reset()
+        self._resetblockdata = self._blocks[self._resetblock]
+    def quote(self, from_token, to_token, amount, block):
+        one_inch_join = oit.web3.eth.contract(address=oit.one_inch_split_contract, abi=oit.one_inch_split_abi)
+        contract_response = one_inch_join.functions.getExpectedReturn(from_token, to_token, amount, 40, 0).call({'from': oit.base_account}, block_identifier = block)
         #print('quote', from_token, to_token, amount)
-        return oit.one_inch_get_quote(from_token, to_token, amount)[0]
+        #return oit.one_inch_get_quote(from_token, to_token, amount)[0]
+        return contract_response[0]
     def _observe(self):
-        self._timepoint += 1
-        print(self._timepoint)
-        if self._timepoint <= len(self._history):
-            return self._history[self._timepoint - 1]
-        while True:
-            nonnormalised = np.array([
-                 [
-                     self.quote(self._tokens[from_token], self._tokens[to_token], int(self._balances[from_token]))
-                     for to_token in range(len(self._tokens))
-                 ]
-                 for from_token in range(len(self._tokens))
-            ])
-            if len(self._history) and (nonnormalised == self._history[-1]).all():
-                time.sleep(1)
-                continue
-            self._history.append(nonnormalised)
+        self._block += 1
+        nonnormalised = self._blocks.get(self._block, None)
+        if nonnormalised is not None:
             return nonnormalised
+        nonnormalised = np.array([
+             [
+                 self.quote(self._tokens[from_token], self._tokens[to_token], int(self._balances[from_token]), self._block)
+                 for to_token in range(len(self._tokens))
+             ]
+             for from_token in range(len(self._tokens))
+        ])
+        self._blocks[self._block] = nonnormalised
+        return nonnormalised
     def normalise_observation(self, observation):
         normalised = observation / observation.sum(axis=0, keepdims=True)
         return normalised.flatten()
     def reset(self):
-        # we could store history here, and rewind.
-        self._timepoint = 0
+        self._block = self._resetblock - 1
         return self.normalise_observation(self._observe())
+    def render(self, how):
+        print(self._balances)
     def step(self, action_value):
         # process symmetry
         action_value = action_value.reshape((len(self._tokens),len(self._tokens)))
@@ -93,13 +98,19 @@ class oitenv(gym.Env):
                 continue
 
             self._balances[from_token] -= from_amount
-            to_amount = self.quote(self._tokens[from_token], self._tokens[to_token], from_amount) * 0.999
+            to_amount = self.quote(self._tokens[from_token], self._tokens[to_token], from_amount, self._block) * 0.999
             self._balances[to_token] += to_amount
             #print('trade', amount, from_token, from_amount, to_token, to_amount)
         #print('status', self._balances, self._changes)
-        #self._balances += self._changes
 
-        observation = self._observe()
+        try: 
+            observation = self._observe()
+        except ValueError as e:
+            print(e.args)
+            if e.args[0]['code'] == -32000: # 'header not found' item is too new
+                return self.normalise_observation(self._blocks[self._block - 1]), 0, True, {}
+            raise e
+
         # scale reward from -1 to 1
         # >1 becomes >0
         # <1 becomes <0
@@ -107,7 +118,7 @@ class oitenv(gym.Env):
         # 1000% becomes 1
         ### 1000% is 10
         # 0 becomes -1
-        reward = np.sum(observation[:, self._fiatidx]) / np.sum(self._history[0][:, self._fiatidx])
+        reward = np.sum(observation[:, self._fiatidx]) / np.sum(self._resetblockdata[:, self._fiatidx])
         reward = math.log(reward)
         print('reward', reward)
         return self.normalise_observation(observation), reward, False, {}
