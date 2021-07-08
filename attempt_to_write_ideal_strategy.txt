@@ -1,0 +1,208 @@
+i keep freaking out when i try to write this.
+
+An attempt to implement this algorithm is now at scratch/extrema_tracker.py.
+It contains a logic error, and throws an exception when it encounters it.  It is a trade at a loss two extreme events prior to the exception.
+
+- we can consider trading feeless when modelling, considering fees if present to be simply a mutation of the chart
+
+- we can consider a price history to be made of tiny 'cross' regions: times when sell or buy price are locally extreme
+    each of these cross regions has an extreme where most profit is to be made
+
+     -
+    - -                    
+   -   -                     
+  -  s  -                    
+ -  - -  -                  
+b  -   -? - -
+  -     -  b                 
+ -       -                   
+-         - -
+           -                
+buy  sell  buy                           
+1    2     3                    
+    |  A | 
+   |   B  |
+                            
+    region A is the sell cross for buying at 1b, the past local minimum
+    region B is the sell cross for buying at 3b, the future local minimum
+    the sell extreme is 2s, surrounded by buy extremes 1b and 3b
+
+
+considering state machine to track these.
+tracks sellp, buyp, sellp <= buyp
+
+SELL = 0
+BUY = 1
+
+class price_tracker:
+    def __init__(self):
+        self.region = -1
+        self.prices = np.array([np.inf, -np.inf])
+        self.idxs = np.array([0,0])
+        self.multipliers = np.array([1,-1])
+        self.history = []
+    def _update(self, idx, prices, region):
+        if prices[region] * self.multipliers[region] < self.prices[region]:
+            # this price is more extreme; update
+            self.prices[region] = prices[region] * self.multipliers[region]
+            self.idx[region] = idx
+        nextregion = 1 - region
+        if prices[nextregion] * self.multipliers[region] > self.prices[region]:
+            # other price crossed our extreme price, switch regions
+            self.history.append(region, self.idxs[region], self.prices[region])
+            self.prices[nextregion] = prices[nextregion] * self.multipliers[nextregion]
+            self.idxs[nextregion] = idx
+            self.region = nextregion
+    def update(self, idx, prices):
+        if self.region != SELL:
+            self._update(idx, prices, BUY)
+        if self.region != BUY:
+            self._updatE(idx, prices, SELL)
+
+class price_tracker:
+    def __init__(self):
+        self.region = None
+        self.buyp = -math.inf
+        self.sellp = math.inf
+        self.history = []
+    def _newregion(self, idx, sellp, buyp, region):
+        if region == 'buy':
+            self.history.append('sell', self.selli, self.sellp)
+            self.buyp = buyp
+            self.buyi = idx
+        else:
+            self.history.append('buy', self.buyi, self.buyp)
+            self.sellp = sellp
+            self.selli = idx
+        self.region = region
+    def update(self, idx, sellp, buyp):
+        if self.region != 'sell':
+            if buyp < self.buyp:
+                self.buyp = buyp
+                self.buyi = idx
+            if sellp > self.buyp:
+                self._newregion(idx, sellp, buyp, 'sell')
+        if self.region != 'buy':
+            if sellp > self.sellp:
+                self.sellp = sellp
+                self.selli = idx
+            if buyp < self.sellp:
+                self._newregion(idx, sellp, buyp, 'buy')
+
+class price_tracker:
+    def __init__(self):
+        self.region = None
+        self.buyp = -math.inf
+        self.sellp = math.inf
+        self.history = []
+    def _newregion(self, idx, sellp, buyp, region):
+        if region == 'buy':
+            self.history.append('sell', self.selli, self.sellp)
+            self.buyp = buyp
+            self.buyi = idx
+        else:
+            self.history.append('buy', self.buyi, self.buyp)
+            self.sellp = sellp
+            self.selli = idx
+        self.region = region
+    def update(self, idx, sellp, buyp):
+        if self.region is None:
+            if sellp > self.sellp:
+                self.sellp = sellp
+                self.selli = idx
+            if buyp < self.buyp:
+                self.buyp = buyp
+                self.buyi = idx
+            if buyp < self.sellp:
+                self._newregion(idx, sellp, buyp, 'buy')
+            elif sellp > self.buyp:
+                self._newregion(idx, sellp, buyp, 'sell')
+        elif self.region == 'buy':
+            if buyp < self.buyp:
+                self.buyp = buyp
+                self.buyi = idx
+            if sellp > self.buyp:
+                self._newregion(idx, sellp, buyp, 'sell')
+        elif self.region == 'sell':
+            if sellp > self.sellp:
+                self.sellp = sellp
+                self.selli = idx
+            if buyp < self.sellp:
+                self._newregion(idx, sellp, buyp, 'buy')
+            
+
+design pseudocode:
+starts.
+init(sellp, buyp):
+    lastmin_buy = buyp
+    lastmax_sell = sellp
+    region = unknown
+update(sellp, buyp):
+    # the biggest issue here is that a future cross may be more or less extreme than a pass cross, which might have edge conditions inside their difference,
+    # depending on whether the system is responding to the past or gambling on the future
+    if region == unknown:
+        # we only know the region once there is a cross.
+        # i believe this block is correct, 0.5 checks
+        if sellp > lastmin_buy:
+            # the sell price surpassed a buy price, so it is now time to sell
+            region = sell
+            # this was our buy price
+            record_ideal_buy(lastmin_buy)
+            # we'll need to track the max sell within the region
+            lastmax_sell = sellp # we'll need to track the max sell within the region
+        elif buyp < lastmax_sell:
+            region = buy
+            record_ideal_sell(lastmax_sell)
+            lastmin_buy = buyp
+        else:
+            # we are still in an unknown region; track the extrema
+            if sellp > lastmax_sell:
+                lastmax_sell = sellp
+            elif buyp < lastmin_buy:
+                lastmin_buy = buyp
+    elif region == buy:
+        # lastmax_sell is what we ideally sold at
+        # we want to track lastmin_buy
+        if buyp < lastmin_buy:
+            lastmin_buy = buyp
+        if sellp > lastmin_buy:
+            # the sell price surpassed our buy price, so it is now time to sell
+            region = sell
+            record_ideal_buy(lastmin_buy)
+            lastmax_sell = sellp
+    elif region == sell:
+        if sellp > lastmax_sell:
+            lastmax_sell = sellp
+        if buyp < lastmax_sell:
+            # the buy price dropped below our sell price, so it is now time to buy
+            region = buy
+            record_ideal_sell(lastmax_sell)
+
+        
+# of course we've also seen that it can respond to behavior, so you'd do the recording while trading.
+# things to predict:
+# - whether or not the region gets more extreme than it already is
+# - how much more extreme the region gets than it already is
+# - how long another region will take to happen
+# - possibly scenarios and their separate likelihoods
+
+                                                                             
+heading right
+0    [S]  B   sS   b B   s  S   b   B  s     S   b     B  s       S   b           B   s        S
+                                                                             
+                                             _                   _-_                              
+               _           _-_             _- -_               _- _ -_                         _  buy         
+ _   _-_     _- -_       _- _ -_         _- _-_ -_           _- _- -_ -_                     _- 
+- -_- _ -_ _- _-_ -_   _- _- -_ -_     _- _-   -_ -_       _- _-     -_ -_                 _- _-  sell
+_-_ _- -_ - _-   -_ -_- _-     -_ -_ _- _-       -_ -_   _- _-         -_ -_             _- _-  
+   -     -_-       -_ _-         -_ - _-           -_ -_- _-             -_ -_         _- _-
+                     -             -_-               -_ _-                 -_ -_     _- _-
+                                                       -                     -_ -_ _- _- 
+                                                                               -_ - _-  
+                                                                                 -_-             
+heading left
+      S   Bb   S s   B   b  S   s   B    b   S     s   B      b   S           s   B        b  [S]
+
+i think errors could happen only if there are many small changes near edges
+could test by exhausting data in both directions
+ 
