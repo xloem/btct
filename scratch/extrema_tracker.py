@@ -42,7 +42,8 @@ class price_tracker:
 
 FIAT = 0
 COMMODITY = 1
-balance = np.array([100,100])
+balance = None
+#balance = np.array([None,None])
 def output(history):
     global balance
     for idx, row in enumerate(history):
@@ -50,12 +51,23 @@ def output(history):
         if 'extreme' in row:
             fiatcommodity = buysell = row['extreme']
             otherfiatcommodity = 1 - fiatcommodity
-            nextbalance = balance[otherfiatcommodity] * row['prices'][buysell]
-            profit = 100 * nextbalance / balance[fiatcommodity] - 100
-            if not (profit > 0):
-                raise Exception()
+            if balance is None:
+                balance = np.array([None,None])
+                otherbalance = 1.0
+            else:
+                otherbalance = balance[otherfiatcommodity]
+            if fiatcommodity == FIAT:
+                nextbalance = otherbalance * row['prices'][SELL]
+            else:
+                nextbalance = otherbalance / row['prices'][BUY]
+            if balance[0] is None:
+                profit = 0.0
+            else:
+                profit = nextbalance / balance[fiatcommodity] - 1.0
+                if not (profit > 0):
+                    raise Exception()
             balance[fiatcommodity] = nextbalance
-            print(rowtxt, ['SELL','BUY'][row['extreme']], 'balance =', nextbalance, int(profit), '%')
+            print(rowtxt, ['SELL','BUY'][row['extreme']], 'balance =', nextbalance, int(profit*10000)/100, '%')
         elif idx % (len(history)/5) == 0:
             print(rowtxt)
     

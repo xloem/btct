@@ -181,6 +181,7 @@ update(sellp, buyp):
         
 # of course we've also seen that it can respond to behavior, so you'd do the recording while trading.
 # things to predict:
+# - what the chance is of nothing more extreme happening before the next cross
 # - whether or not the region gets more extreme than it already is
 # - how much more extreme the region gets than it already is
 # - how long another region will take to happen
