@@ -17,6 +17,12 @@ def hex2b(hex):
 def b2hex(b):
     return '0x' + b.hex()
 
+def o2sql(o):
+    if type(o) is Table.Row:
+        return hex2b(o.id)
+    else:
+        return o
+
 
 class Table:
     tables = {}
@@ -25,6 +31,7 @@ class Table:
             self.table = table
             for col, val in zip(table.cols, params):
                 kwparams[col.name] = val
+            self.kwparams = kwparams
             #print(table.name, 'ROW', {key:str(val) for key,val in kwparams.items()})
             for key, val in kwparams.items():
                 col = self.table.colsdict[key]
@@ -35,35 +42,56 @@ class Table:
                     if type(val) is bytes:
                         val = b2hex(val)
                 setattr(self, key, val)
-            self.addr = self.id
+            if 'id' in kwparams:
+                self.addr = self.id
         def __iter__(self, attr):
-            for row in c.execute(
-                'SELECT ' + 
-                ', '.join((col.name for col in self.table.cols[1:])) +
-                ' FROM ' + self.table.name + ' WHERE id == ?',
-                (hex2b(self.id),)
-            ):
-                yield Table.Row(self.table, *row)
+            return self._select()
+        def ascending(self, key):
+            return self._orderby(key, 'ASC')
+        def descending(self, key):
+            return self._orderby(key, 'DESC')
+        def _orderby(self, key, direction = 'ASC'):
+            return self._select('ORDER BY ? ' + direction, o2sql(key))
+        def _select(self, wherestr = '', *wherevals):
+            if 'id' in self.kwparams:
+                wherestr = 'WHERE id == ? ' + wherestr
+                wherevals = (hex2b(self.id), *wherevals)
+            else:
+                wherestr = (
+                    'WHERE ' +
+                    'AND '.join(
+                        key + ' == ? '
+                        for key in self.kwparams.keys()
+                    )
+                ) + wherestr
+                wherevals = (
+                    *(o2sql(getattr(self, key)) for key in self.kwparams.keys()),
+                    *wherevals
+                )
+            query = 'SELECT * FROM ' + self.table.name + ' ' + wherestr
+            #print(query, wherevals)
+            return (
+                Table.Row(self.table, *row)
+                for row in c.execute(
+                    query,
+                    wherevals
+                )
+            )
         def __getattr__(self, attr):
             #print(self.table.name, self.id, 'getattr')
-            vals = c.execute(
-                'SELECT ' + 
-                ', '.join((col.name for col in self.table.cols)) +
-                ' FROM ' + self.table.name + ' WHERE id == ?',
-                (hex2b(self.id),)
-            ).fetchone()
+            vals = None
+            for row in self._select():
+                if vals is not None:
+                    raise AttributeError(attr)
+                vals = row.kwparams
             if vals is None:
-                raise LookupError(self.table.name + ' not found: ' + self.id)
-            result = {}
-            for col, val in zip(self.table.cols, vals):
-                if col.foreign is not None or col.primary:
-                    val = b2hex(val)
-                if col.foreign is not None:
-                    val = Table.Row(Table.tables[col.foreign], val)
-                result[col.name] = val
-                setattr(self, col.name, val)
+                raise LookupError(self.table.name + ' not found: ' + str(self.kwparams))
+            for col, val in vals.items():
+                setattr(self, col, val)
+            self.kwparams = vals
+            self.addr = self.id
             #print(self.table.name, 'EXPAND', self.id, result)
-            return result[attr]
+            return vals[attr]
         def __str__(self):
             if self.table.numrequiredcols - self.table.numforeigncols > 0:
                 for col in self.table.cols:
@@ -147,7 +175,7 @@ class Table:
         c.execute(
             'INSERT OR IGNORE INTO ' + self.name + ' (`' +
                 '`, `'.join(kwvals.keys())
-            + '`) VALUES(' + 
+            + '`) VALUES(' +
                 ', '.join('?' * len(sqlite_vals)) +
             ')',
             sqlite_vals
@@ -162,24 +190,7 @@ class Table:
         if len(kwparams) >= self.numrequiredcols:
             #print('call going to ensure')
             return self.ensure(**kwparams)
-        sqlite_cols = []
-        sqlite_vals = []
-        for col, val in kwparams.items():
-            col = self.coltables[col]
-            if col.foreign is not None or col.primary:
-                if type(val) is Table.Row:
-                    val = val.id
-                val = hex2b(val)
-            sqlite_cols.append(col.name)
-            sqlite_vals.append(val)
-        params = c.execute(
-            'SELECT ' + ', '.join((col.name for col in self.cols)) + ' FROM ' + self.name + ' WHERE ' +
-            ' AND '.join(
-                key + ' = ?'
-                for key in sqlite_cols
-            ), sqlite_vals
-        ).fetchone()
-        return Table.Row(self, *params)
+        return Table.Row(self, *params, **kwparams)
     def __iter__(self):
         for row in c.execute('SELECT * FROM ' + self.name):
             yield Table.Row(self, *row)

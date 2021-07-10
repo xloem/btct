@@ -43,7 +43,11 @@ def wrap_neterrs(func):
 
 
 #for pair in uniswapv2ct.events.PairCreated().getLogs(fromBlock=w3.eth.block_number-126):#tailblock-127,toBlock=tailblock):
-for pairidx in range(wrap_neterrs(uniswapv2ct.functions.allPairsLength())):
+firstpairidx = 0
+for row in db.pair(dex=uniswapv2).descending('index'):
+    firstpairidx = row.index + 1
+    break
+for pairidx in range(firstpairidx, wrap_neterrs(uniswapv2ct.functions.allPairsLength())):
     pairaddr = wrap_neterrs(uniswapv2ct.functions.allPairs(pairidx))
     pairct = w3.eth.contract(address=pairaddr, abi=abi.uniswapv2_pair)
     tokenaddrs = (wrap_neterrs(pairct.functions.token0()), wrap_neterrs(pairct.functions.token1()))
