@@ -60,8 +60,8 @@
 	url = ./data/DELION.LTC-DELION.BTC
 	datalad-id = 277cbe08-89bd-4d5a-a119-cc04f75cd24d
 [submodule "ethereum/one-inch-trades"]
-	path = ethereum/one-inch-trades
+	path = ethereum/oneinchai/one-inch-trades
 	url = https://gitlab.com/xloem/one-inch-trades.git
 [submodule "ethereum/rl-baselines3-zoo"]
-	path = ethereum/rl-baselines3-zoo
+	path = ethereum/oneinchai/rl-baselines3-zoo
 	url = https://github.com/DLR-RM/rl-baselines3-zoo
