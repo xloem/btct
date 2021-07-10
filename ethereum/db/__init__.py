@@ -1,6 +1,8 @@
 import sys
 if sys.version_info < (3,6):
     sys.exit("I'm not sure tables will function correctly without python 3.6 dict ordering")
+    # this has to do with how kwparams are used to pass the column names in.
+    # using tuples instead of kwparams would resolve the limitation
 
 import sqlite3
 from web3 import _utils as utils
