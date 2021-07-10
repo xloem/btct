@@ -51,7 +51,7 @@ class Table:
         def descending(self, key):
             return self._orderby(key, 'DESC')
         def _orderby(self, key, direction = 'ASC'):
-            return self._select('ORDER BY ? ' + direction, o2sql(key))
+            return self._select('ORDER BY `' + key + '` ' + direction)
         def _select(self, wherestr = '', *wherevals):
             if 'id' in self.kwparams:
                 wherestr = 'WHERE id == ? ' + wherestr
