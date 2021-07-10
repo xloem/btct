@@ -6,11 +6,7 @@ import abi
 import db
     
 
-dai = db.token('0x6B175474E89094C44Da98b954EedeAC495271d0F', 'DAI')
-weth = db.token('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', 'WETH')
-
 uniswapv2 = db.dex(abi.uniswapv2_factory_addr, 'UNI-V2')
-db.pair.ensure('0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11', dai, weth, uniswapv2)
 
 # filters can be polled synchronously or asynchronously, see web3py docs
 # filters only work on local nodes
@@ -55,11 +51,11 @@ for pairidx in range(wrap_neterrs(uniswapv2ct.functions.allPairsLength())):
     for tokenidx in range(2):
         try:
             symbols[tokenidx]=wrap_neterrs(w3.eth.contract(address=tokenaddrs[tokenidx], abi=abi.uniswapv2_erc20).functions.symbol())
-        except:
+        except OverflowError: # this absorbs keyboard-interrupt, put error type in? .. the error is thrown from an underlying issue in the library, resulting from calling to the wrong spec.  other errors could be thrown, add 'em I guess.
             print('pairidx',pairidx,'token',tokenidx,tokenaddrs[tokenidx],'raised an erc20 error')
             symbols[tokenidx] = tokenaddrs[tokenidx]
     [db.token.ensure(addr, symbol) for addr, symbol in zip(tokenaddrs, symbols)]
-    print(db.pair(pairaddr, tokenaddrs[0], tokenaddrs[1], uniswapv2))
+    print(db.pair(pairaddr, tokenaddrs[0], tokenaddrs[1], uniswapv2, index=pairidx))
 #for token0 in db.token:
 #    for token1 in db.token:
 #        pair = uniswapv2ct.
