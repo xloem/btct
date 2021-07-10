@@ -1,7 +1,7 @@
 import sys
 if sys.version_info < (3,6):
     sys.exit("I'm not sure tables will function correctly without python 3.6 dict ordering")
-    # this has to do with how kwparams are used to pass the column names in.
+    # this has to do with how kwparams are used to pass the column names in concisely.
     # using tuples instead of kwparams would resolve the limitation
 
 import sqlite3
@@ -25,13 +25,22 @@ class Table:
             #print(table.name, 'ROW', {key:str(val) for key,val in kwparams.items()})
             for key, val in kwparams.items():
                 col = self.table.colsdict[key]
-                if col.foreign is not None and type(val) is not Table.Row:
-                    setattr(self, key, Table.Row(Table.tables[col.foreign], val))
-                else:
-                    #if type(val) is Table.Row:
-                        #print(val,'is',val.id)
-                    setattr(self, key, val)
+                if col.foreign is not None:
+                    if type(val) is not Table.Row:
+                        val = Table.Row(Table.tables[col.foreign], val)
+                elif col.primary:
+                    if type(val) is bytes:
+                        val = b2hex(val)
+                setattr(self, key, val)
             self.addr = self.id
+        def __iter__(self, attr):
+            for row in c.execute(
+                'SELECT ' + 
+                ', '.join((col.name for col in self.table.cols[1:])) +
+                ' FROM ' + self.table.name + ' WHERE id == ?',
+                (hex2b(self.id),)
+            ):
+                yield Table.Row(self.table, *row)
         def __getattr__(self, attr):
             #print(self.table.name, self.id, 'getattr')
             vals = c.execute(
@@ -62,18 +71,19 @@ class Table:
                 return self.id
 
     class Column:
-        def __init__(self, idx, name, sqltype, foreign = None):
+        def __init__(self, idx, name, sqltype, foreign = None, primary = False):
             self.idx = idx
             self.name = name
             self.type = type
             self.sqltype = sqltype
             self.foreign = foreign
+            self.primary = primary
 
     def __init__(self, name, *strcols, **coltables):
         #print('TABLE',strcols,coltables)
         self.coltables = coltables
         self.keycolidx = 1 + len(strcols)
-        self.colslist = ([Table.Column(0, 'id', 'BLOB PRIMARY KEY')] +
+        self.colslist = ([Table.Column(0, 'id', 'BLOB PRIMARY KEY', None, True)] +
             [
                     Table.Column(idx + 1, col, 'TEXT')
                     for idx, col in enumerate(strcols)
@@ -100,13 +110,12 @@ class Table:
                 val = val.id
             sqlite_vals[idx] = hex2b(val)
         #print(self.name, 'ensure-insert', {self.cols[idx].name:sqlite_vals[idx] for idx in range(self.numcols)})
-        with c:
-            c.execute(
-                'INSERT OR IGNORE INTO ' + self.name + ' VALUES(' + 
-                ', '.join('?' * self.numcols) +
-                ')',
-                sqlite_vals
-            )
+        c.execute(
+            'INSERT OR IGNORE INTO ' + self.name + ' VALUES(' + 
+            ', '.join('?' * self.numcols) +
+            ')',
+            sqlite_vals
+        )
         return Table.Row(self, *vals)
     def __getitem__(self, id):
         return Table.Row(self, id)
@@ -134,6 +143,17 @@ class Table:
             ), sqlite_vals
         ).fetchone()
         return Table.Row(self, *params)
+    def __iter__(self):
+        for row in c.execute('SELECT * FROM ' + self.name):
+            yield Table.Row(self, *row)
+    def commit(self):
+        c.commit();
+    def __del__(self):
+        c.commit();
+    def __enter__(self, *params):
+        return c.__enter__(*params)
+    def __exit__(self, *params):
+        return c.__exit__(*params)
 
 token = Table('token', 'symbol')
 pair = Table('pair', token0='token', token1='token', dex='dex')
