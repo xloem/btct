@@ -2,9 +2,12 @@ from pyweb3 import w3, wrap_neterrs, web3
 import abi
 import db
 
-# i added this line to debug a strange mismatched abi error.  the line prevents the error =/  quick-workaround
-testrecpt = w3.eth.getTransactionReceipt('0xb31fcb852b18303c672b81d90117220624232801ad949bd4047e009eaed73403')
-#uniswapv2ct.events.PairCreated()#.processLog(testrecpt.logs[0])
+try:
+    # i added this line to debug a strange mismatched abi error.  the line prevents the error =/  quick-workaround
+    testrecpt = w3.eth.getTransactionReceipt('0xb31fcb852b18303c672b81d90117220624232801ad949bd4047e009eaed73403')
+    #uniswapv2ct.events.PairCreated()#.processLog(testrecpt.logs[0])
+except web3.exceptions.TransactionNotFound:
+    pass
 
 class dex:
     def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2'):
@@ -97,12 +100,54 @@ class pair:
 # approximation of held funds might be needed for calculation
 # the solidity source code of the pair swap() function also shows exactly what happens
 
+# note: balance of a pair is different from its reserves.  the balance is what is used to swap.
+# the script calculates the amountIn as its balance minus its reserve, clamping to 0 for negative
+def swap_status(reserve_tup, bal_tup, out_tup):
+    # copied from UniswapV2Pair.sol
+    if out_tup[0] <= 0 and out_tup[1] <= 0:
+        return False
+    if out_tup[0] >= reserve_tup[0] or out_tup[1] >= reserve_tup[1]:
+        return False
+    if out_tup[0] < 0 or out_tup[1] < 0:
+        raise AssertionError('negative output')
+    in_tup = (
+        bal_tup[0] - (reserve_tup[0] - out_tup[0]) if bal_tup[0] > reserve_tup[0] - out_tup[0] else 0,
+        bal_tup[1] - (reserve_tup[1] - out_tup[1]) if bal_tup[1] > reserve_tup[1] - out_tup[1] else 0
+    )
+    if in_tup[0] <= 0 and in_tup[1] <= 0:
+        return False
+    adj_tup = (
+        bal_tup[0] * 1000 - in_tup[0] * 3,
+        bal_tup[1] * 1000 - in_tup[1] * 3
+    )
+    if adj_tup[0] * adj_tup[1] < reserve_tup[0] * reserve_tup[1] * 1000000:
+        return False
+    # transmission of outs is followed through from _safeTransfer
+    #           noting: price0 = reserve1 / reserve0, price1 = reserve1 / reserve0
+    # reserve becomes balance
+    # Sync(new_reserve0, new_reserve1) is sent
+    # Swap(pair, in0, in1, out0, out1, recipient) is sent
+    return True
 
+def swap_status_convenience(in_amt, out_amt, total_reserve = 10000000000, reserve_proportion_in = 0.5):
+    reserve_portion_in = int(reserver_proportion_in * total_reserve)
+    reserve_tup = (reserve_portion_in, total_reserve - reserve_portion_in)
+    status0 = swap_status(reserve_tup, (reserve_tup[0] + in_amt, reserve_tup[1]), (0, out_amt))
+    status1 = swap_status((reserve_tup[1],reserve_tup[0]), (reserve_tup[1], reserve_tup[0] + in_amt), (out_amt, 0))
+    if status0 != status2:
+        raise AssertionError('status differed for different directions')
+    return status0
+
+def out_for_in(out_reserve, in_amt, in_reserve):
+    # assuming large reserves and smaller but also large in amount?
+    # if this is correct, we can put 10000 in when both reserves are at 10000000
+    #   and get 9979 back.  the fee is only a little more than 2% under those conditions
+    return in_amt * out_reserve / ((3988/1977)*in_amt + in_reserve)
 
 # these equations appear to give a variable rate depending on how the amount given compares to the reserve
 # it's possibly possible to game that, arbitraging a sibling exchange forever
 # the system lets you borrow money to do that, too.  i may have calculated something wrong.
-def getAmountsForIn(amountIn, reserveIn, reserveOut):
+def getAmountOut(amountIn, reserveIn, reserveOut):
     amountInWithFee = amountIn * 997
     numerator = amountInWithFee * reserveOut
     denominator = reserveIn * 1000 + amountInWithFee;
