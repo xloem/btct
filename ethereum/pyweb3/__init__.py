@@ -26,18 +26,31 @@ while True:
     import time
     time.sleep(0.5)
 
-def wrap_neterrs(func):
+def wrap_neterrs(func, method = 'call', **kwparams):
+    count = 0
+    if kwparams.get('fromBlock',-1) is None and hasattr(func.web3, 'block_limit'):
+        kwparams['fromBlock'] = func.web3.eth.block_number + func.web3.block_limit
     while True:
         try:
-            return func.call()
+            return getattr(func, method)(**kwparams)
         except web3.exceptions.BadFunctionCallOutput as e:
-            #if type(e.__cause__) is eth_abi.exceptions.InsufficientDataBytes:
-            #    if ' 0 ' in e.__cause__.args[0]:
-            #        print('expecting a retryable insufficient data error:', e, e.__cause__)
-            #        continue
+            if type(e.__cause__) is eth_abi.exceptions.InsufficientDataBytes:
+                if ' 0 ' in e.__cause__.args[0] and count < 128:
+                    print('expecting a retryable insufficient data error:', e, e.__cause__, count)
+                    count += 1
+                    continue
             raise e
         except ValueError as e:
-            if type(e.args[0]) is dict and e.args[0]['code'] == -32000:
-                print('expecting a retryable network error, code -32000:', e)
-                continue
+            if type(e.args[0]) is dict:
+                if e.args[0]['code'] == -32000:
+                    print('expecting a retryable network error, code -32000:', e)
+                    continue
+                if e.args[0]['code'] == -32602:
+                    print('expecting an argument error stemming from a retryable network error, code -32602:', e)
+                    continue
+                if e.args[0]['code'] == -32600 and ' 128 ' in e.args[0]['message']:
+                    print('warning: limited to past 128 blocks')
+                    kwparams['fromBlock'] = func.web3.eth.block_number - 128
+                    func.web3.block_limit = -128
+                    continue
             raise e

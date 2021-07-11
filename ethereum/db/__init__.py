@@ -38,12 +38,15 @@ class Table:
                 if col.foreign is not None:
                     if type(val) is not Table.Row:
                         val = Table.Row(Table.tables[col.foreign], val)
+                        kwparams[key] = val
                 elif col.primary:
                     if type(val) is bytes:
                         val = b2hex(val)
+                        kwparams[key] = val
                 setattr(self, key, val)
-            if 'id' in kwparams:
-                self.addr = self.id
+        @property
+        def addr(self):
+            return self.id
         def __iter__(self):
             return self._select()
         def ascending(self, key):
@@ -53,14 +56,19 @@ class Table:
         def _orderby(self, key, direction = 'ASC'):
             return self._select('ORDER BY `' + key + '` ' + direction)
         def _select(self, wherestr = '', *wherevals):
+            return (
+                Table.Row(self.table, *row)
+                for row in self._selectraw(wherestr, *wherevals)
+            )
+        def _selectraw(self, wherestr = '', *wherevals):
             if 'id' in self.kwparams:
                 wherestr = 'WHERE id == ? ' + wherestr
                 wherevals = (hex2b(self.id), *wherevals)
-            else:
+            elif len(self.kwparams):
                 wherestr = (
-                    'WHERE ' +
-                    'AND '.join(
-                        key + ' == ? '
+                    'WHERE `' +
+                    'AND `'.join(
+                        key + '` == ? '
                         for key in self.kwparams.keys()
                     )
                 ) + wherestr
@@ -70,13 +78,11 @@ class Table:
                 )
             query = 'SELECT * FROM ' + self.table.name + ' ' + wherestr
             #print(query, wherevals)
-            return (
-                Table.Row(self.table, *row)
-                for row in c.execute(
-                    query,
-                    wherevals
-                )
-            )
+            return c.execute(query, wherevals)
+        def __len__(self):
+            return len(self._selectraw().fetchall())
+        def __bool__(self):
+            return self._selectraw().fetchone() is not None
         def __getattr__(self, attr):
             #print(self.table.name, self.id, 'getattr')
             vals = None
@@ -89,7 +95,6 @@ class Table:
             for col, val in vals.items():
                 setattr(self, col, val)
             self.kwparams = vals
-            self.addr = self.id
             #print(self.table.name, 'EXPAND', self.id, result)
             return vals[attr]
         def __str__(self):
@@ -191,9 +196,10 @@ class Table:
             #print('call going to ensure')
             return self.ensure(**kwparams)
         return Table.Row(self, *params, **kwparams)
+    def __contains__(self, id):
+        return bool(self[id])
     def __iter__(self):
-        for row in c.execute('SELECT * FROM ' + self.name):
-            yield Table.Row(self, *row)
+        return iter(self())
     def commit(self):
         c.commit();
     def __del__(self):
@@ -204,5 +210,11 @@ class Table:
         return c.__exit__(*params)
 
 token = Table('token', symbol=str)
-pair = Table('pair', token0='token', token1='token', dex='dex', index=Optional[int])
 dex = Table('dex', name=str)
+acct = Table('acct')
+pair = Table('pair', token0='token', token1='token', dex='dex', index=Optional[int])
+
+#trade = Table('trade', blocknum=int, pair='pair', amount0 = Optional[int], amount1 = Optional[int])
+# in uniswap2, for one thing, we have prices based on a formula of amount
+# aside from that, they're basically calculable from the reserves
+

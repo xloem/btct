@@ -2,8 +2,12 @@ from pyweb3 import w3, wrap_neterrs, web3
 import abi
 import db
 
+# i added this line to debug a strange mismatched abi error.  the line prevents the error =/  quick-workaround
+testrecpt = w3.eth.getTransactionReceipt('0xb31fcb852b18303c672b81d90117220624232801ad949bd4047e009eaed73403')
+#uniswapv2ct.events.PairCreated()#.processLog(testrecpt.logs[0])
+
 class dex:
-    def __init__(self, address, name='UNI-V2'):
+    def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2'):
         self.db = db.dex(address, name)
         self.ct = w3.eth.contract(
             address = address,
@@ -21,35 +25,38 @@ class dex:
         pairlen = wrap_neterrs(self.ct.functions.allPairsLength())
         for pairidx in range(idx, pairlen):
             pairaddr = wrap_neterrs(self.ct.functions.allPairs(pairidx))
-            pairct = w3.eth.contract(
-                address = pairaddr,
-                abi = abi.uniswapv2_pair
-            )
-            tokens = [None, None]
-            for tokenidx in range(2):
-                tokenaddr = wrap_neterrs(pairct.functions.token0())
-                try:
-                    symbol = wrap_neterrs(w3.eth.contract(
-                        address=tokenaddr,
-                        abi=abi.uniswapv2_erc20
-                    ).functions.symbol())
-                except Exception as e: # this absorbs keyboard-interrupt, put error type in? .. the error is thrown from an underlying issue in the library, resulting from calling to the wrong spec.  other errors could be thrown, add 'em I guess.
-                    if isinstance(e, OverflowError) or isinstance(e, web3.exceptions.ContractLogicError):
-                        print('pairidx',pairidx,'token',tokenidx,tokenaddrs[tokenidx],'raised an erc20 error')
-                        symbol = tokenaddr
-                    else:
-                        raise e
-                tokens[tokenidx] = db.token.ensure(
-                    tokenaddr,
-                    symbol
+            pairdb = db.pair[pairaddr]
+            if not pairdb:
+                pairct = w3.eth.contract(
+                    address = pairaddr,
+                    abi = abi.uniswapv2_pair
                 )
-            pairdb = db.pair(
-                pairaddr,
-                tokens[0].addr,
-                tokens[1].addr,
-                self.addr,
-                index=pairidx
-            )
+                tokenaddrs = (pairct.functions.token0,pairct.functions.token1)
+                tokens = [None, None]
+                for tokenidx in range(2):
+                    tokenaddr = wrap_neterrs(tokenaddrs[tokenidx]())
+                    try:
+                        symbol = wrap_neterrs(w3.eth.contract(
+                            address=tokenaddr,
+                            abi=abi.uniswapv2_erc20
+                        ).functions.symbol())
+                    except Exception as e: # this absorbs keyboard-interrupt, put error type in? .. the error is thrown from an underlying issue in the library, resulting from calling to the wrong spec.  other errors could be thrown, add 'em I guess.
+                        if isinstance(e, OverflowError) or isinstance(e, web3.exceptions.ContractLogicError) or isinstance(e, web3.exceptions.BadFunctionCallOutput):
+                            print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
+                            symbol = tokenaddr
+                        else:
+                            raise e
+                    tokens[tokenidx] = db.token.ensure(
+                        tokenaddr,
+                        symbol
+                    )
+                pairdb = db.pair(
+                    pairaddr,
+                    tokens[0].addr,
+                    tokens[1].addr,
+                    self.db.addr,
+                    index=pairidx
+                )
             yield pair(self, pairdb)
 
 class pair:
@@ -60,13 +67,22 @@ class pair:
             address = self.db.addr,
             abi = abi.uniswapv2_pair
         )
-    def log(self, **kwparams):
+    # note that getLogs uses event filter params
+    # under the hood.  web3/contract.py:1341
+    def logs(self, fromBlock=None, toBlock=None, **kwparams):
         # the best timestamp granularity appears to be the timestamp of the block, which is well known
         # we could display them evenly distributed over the block, if desired
+        
+        #if fromBlock is None:
+        #   fromBlock = 'earliest'
+        if toBlock is None:
+            toBlock = 'latest'
+        # next: back by db. might mean calculating buy/sell prices
+        # it looks like logIndex might be exchangeable with something similar to txOut
         return (
             ((log.args.reserve0, log.args.reserve1), log.blockHash, (log.transactionHash, log.logIndex))
             for log in
-            self.ct.events.Sync().getLogs(**kwparams)
+            wrap_neterrs(self.ct.events.Sync(), 'getLogs', fromBlock=fromBlock,toBlock=toBlock,**kwparams)
         )
     def reserves(self):
         # call(), inside wrap_neterrs, can take transaction params and a block identifier or number
