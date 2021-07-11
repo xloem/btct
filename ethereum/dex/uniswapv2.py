@@ -20,13 +20,14 @@ class dex:
     ## pairs iterator for now, better to look up by attributes like tokens or volume or such i guess
     ## this could also be getitem[]
     ## but maybe what's important to think about is getting what's needed into the database, rather than accessing it
-    def pairs(self):
+    def pairs(self, startidx = 0):
         idx = 0
         for _pair in db.pair(dex=self.db.addr):
             idx = _pair.index
-            yield pair(self, _pair)
+            if idx >= startidx:
+                yield pair(self, _pair)
         pairlen = wrap_neterrs(self.ct.functions.allPairsLength())
-        for pairidx in range(idx, pairlen):
+        for pairidx in range(max(idx+1,startidx), pairlen):
             pairaddr = wrap_neterrs(self.ct.functions.allPairs(pairidx))
             pairdb = db.pair[pairaddr]
             if not pairdb:
