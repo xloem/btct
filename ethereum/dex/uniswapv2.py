@@ -91,7 +91,7 @@ class pair:
                     # it could be nice to convert txidx to be local to the transaction
                     txidx=log.logIndex,
                     pair=self.db,
-                    block=db.block.ensure(log.blockHash),
+                    block=db.block.ensure(log.blockHash, log.blockNumber),
                     trader0=db.acct.ensure(log.address),
                     trader1=db.acct.ensure(self.db.addr),
                     const0=log.args.reserve0,

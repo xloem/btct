@@ -111,12 +111,19 @@ class Table:
                 for col in self.table.cols:
                     # 2021-07-11 col.primary has a type of str, the id
                     if not col.primary and col.type is str:
-                        return str(getattr(self, col.name))
+                        val = getattr(self, col.name)
+                        if val is not None:
+                            return val
             if self.table.numforeigncols > 0:
                 #print([getattr(self, col.name) for col in self.table.cols[1:]])
                 return '/'.join((str(getattr(self, col.name)) for col in self.table.cols[1:] if col.foreign is not None))
             else:
-                return self.id
+                for col in self.table.cols:
+                    if col.type is not str and not isinstance(col.type, bytes):
+                        val = getattr(self, col.name)
+                        if val is not None:
+                            return str(val)
+            return self.id
 
     class Column:
         def __init__(self, idx, name, type, sqltype, foreign = None, primary = False, optional = False):
@@ -205,13 +212,13 @@ class Table:
             col = self.colsdict[key]
             if type(val) is Table.Row:
                 val = val.id
-            if col.foreign is not None or col.primary and not isinstance(val, bytes):
+            if (col.foreign is not None or col.primary) and not isinstance(val, bytes):
                 val = hex2b(val)
             elif col.type is int and col.sqltype == 'BLOB':
                 val = pickle.encode_long(val)
             sqlite_vals.append(val)
         #print(self.name, 'ensure-insert', {self.cols[idx].name:sqlite_vals[idx] for idx in range(self.numcols)})
-        c.execute(
+        cres = c.execute(
             'INSERT OR IGNORE INTO ' + self.name + ' (`' +
                 '`, `'.join(kwvals.keys())
             + '`) VALUES(' +

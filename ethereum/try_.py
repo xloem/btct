@@ -18,7 +18,7 @@ import dex.uniswapv2
 usv2 = dex.uniswapv2.dex()
 
 for pair in usv2.pairs():
-    print(pair.db.index, pair.db)
+    #print(pair.db.index, pair.db)
     for tx in pair.logs():
         print(tx)
 db.c.commit()
