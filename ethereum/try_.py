@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pyweb3 import w3, utils, web3, eth_abi
+from pyweb3 import w3, utils, web3, eth_abi, wrap_neterrs
 
 import abi
 import db
@@ -25,21 +25,6 @@ testrecpt = w3.eth.getTransactionReceipt('0xb31fcb852b18303c672b81d9011722062423
 
 #lasttailblock = w3.eth.block_number
 #for tailblock in range(lasttailblock, 0, -127):
-
-def wrap_neterrs(func):
-    while True:
-        try:
-            return func.call()
-        except web3.exceptions.BadFunctionCallOutput as e:
-            if type(e.__cause__) is eth_abi.exceptions.InsufficientDataBytes:
-                if ' 0 ' in e.__cause__.args[0]:
-                    continue
-            raise e
-        except ValueError as e:
-            if type(e.args[0]) is dict and e.args[0]['code'] == -32000:
-                continue
-            raise e
-
 
 #for pair in uniswapv2ct.events.PairCreated().getLogs(fromBlock=w3.eth.block_number-126):#tailblock-127,toBlock=tailblock):
 firstpairidx = 0

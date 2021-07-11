@@ -8,14 +8,14 @@ import typing
 from typing import Optional
 
 import sqlite3
-from web3 import _utils as utils
+from web3 import _utils as utils, Web3
 
 c = sqlite3.connect('dex.sqlite')
 
 def hex2b(hex):
     return utils.encoding.to_bytes(hexstr=str(hex))
 def b2hex(b):
-    return '0x' + b.hex()
+    return Web3.toChecksumAddress('0x' + b.hex())
 
 def o2sql(o):
     if type(o) is Table.Row:
@@ -44,7 +44,7 @@ class Table:
                 setattr(self, key, val)
             if 'id' in kwparams:
                 self.addr = self.id
-        def __iter__(self, attr):
+        def __iter__(self):
             return self._select()
         def ascending(self, key):
             return self._orderby(key, 'ASC')
