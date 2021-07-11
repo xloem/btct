@@ -220,20 +220,55 @@ class trade:
         self.db = db
     def reserves(self):
         return (self.db.const0, self.db.const1)
-    def token0_for_token1(self, token1_bal):
+    def token0_possible(self, token1_have):
         reserve0, reserve1 = self.reserves()
         return self.pair.calc_out((reserve1, reserve0), token1_bal)
-    def token1_for_token0(self, token0_bal):
+    def token1_possible(self, token0_have):
         return self.pair.calc_out(self.reserves(), token0_bal)
-    def sellbuys(self, investment_tup):
-        raise NotImplementedError()
+    def token0_needed(self, token1_want):
+        return self.pair.calc_in(self.reserves(), token1_goal)
+    def token1_needed(self, token0_want):
+        reserve0, reserve1 = self.reserves()
+        return self.pair.calc_in((reserve1, reserve0), token0_goal)
+
+    def prices(self, investment_tup):
         # calculate the sellbuy rational prices
-        # calculate ((sell1_for_0, buy1_with_0),(sell0_for_1, buy0_with_1))
+        # if rational objects are passed in investment_tup, hopefully the same will be output
 
         # start by combining the sides of investment_tup to have total balances
-        # the low will be the sell price for token1 using token0
-        # the high will be the buy price for token1 using token0
-        pass
+        starting_bal = (
+                investment_tup[0] + self.token0_possible(investment_tup[1]),
+                investment_tup[1] + self.token1_possible(investment_tup[0])
+        )
+
+        # calculate how much each trades for
+        ending_bal = (
+                self.token0_possible(starting_bal[1]),
+                self.token1_possible(starting_bal[0])
+        )
+        # update starting_bal to reduce rounding error
+        starting_bal = (
+                self.token0_needed(ending_bal[1]),
+                self.token1_needed(ending_bal[0])
+        )
+
+        # TODO: gas fees.
+        # the best way to figure gas fees is to actually run a test transaction and discern
+        # all the expenses.
+
+        # calculate ((sell1_for_0, buy1_with_0),(sell0_for_1, buy0_with_1))
+        return (
+            (
+                # sale price of token1 in token0: how much token0 we get for a single token1
+                ending_bal[0]/starting_bal[1],
+                # purcahse price of token1 in token0: how much token0 a single token1 costs
+                starting_bal[0]/ending_bal[1]
+            ),(
+                # same price of token0 in token1
+                ending_bal[1]/starting_bal[0],
+                starting_bal[0]/ending_bal[1]
+            )
+        )
     def __str__(self):
         return str(self.pair.db) + ':' + self.db.block.hash + '/' + str(self.db.txidx) + ' ' + str(self.db.const0) + '/' + str(self.db.const1)
 
