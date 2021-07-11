@@ -56,6 +56,9 @@ class Table:
         @property
         def addr(self):
             return self.id
+        @property
+        def hash(self):
+            return self.id
         def __iter__(self):
             return self._select()
         def ascending(self, key):
