@@ -1,5 +1,6 @@
 import web3
 import eth_abi
+import requests
 from web3 import Web3, _utils as utils
 
 #from web3.auto import w3 as w3_local
@@ -40,6 +41,9 @@ def wrap_neterrs(func, method = 'call', **kwparams):
                     count += 1
                     continue
             raise e
+        except requests.exceptions.ConnectionError as e:
+            print('network error', e)
+            continue
         except ValueError as e:
             if type(e.args[0]) is dict:
                 if e.args[0]['code'] == -32000:
