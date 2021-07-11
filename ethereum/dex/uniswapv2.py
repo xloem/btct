@@ -13,7 +13,9 @@ except web3.exceptions.TransactionNotFound:
 
 class dex:
     def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2'):
-        self.db = db.dex(address, name)
+        self.db = db.dex(address)
+        if not self.db:
+            self.db = db.dex.ensure(address, name)
         self.ct = w3.eth.contract(
             address = address,
             abi = abi.uniswapv2_factory
@@ -222,14 +224,14 @@ class trade:
         return (self.db.const0, self.db.const1)
     def token0_possible(self, token1_have):
         reserve0, reserve1 = self.reserves()
-        return self.pair.calc_out((reserve1, reserve0), token1_bal)
+        return self.pair.calc_out((reserve1, reserve0), token1_have)
     def token1_possible(self, token0_have):
-        return self.pair.calc_out(self.reserves(), token0_bal)
+        return self.pair.calc_out(self.reserves(), token0_have)
     def token0_needed(self, token1_want):
-        return self.pair.calc_in(self.reserves(), token1_goal)
+        return self.pair.calc_in(self.reserves(), token1_want)
     def token1_needed(self, token0_want):
         reserve0, reserve1 = self.reserves()
-        return self.pair.calc_in((reserve1, reserve0), token0_goal)
+        return self.pair.calc_in((reserve1, reserve0), token0_want)
 
     def prices(self, investment_tup):
         # calculate the sellbuy rational prices
@@ -255,6 +257,29 @@ class trade:
         # TODO: gas fees.
         # the best way to figure gas fees is to actually run a test transaction and discern
         # all the expenses.
+            # likely:
+            # - come up with an amount to send/receive
+            # we'll try buying about $1 from USDC/WETH with ethereum.
+            ### $1 is 1000000 USDC
+            ### there are 10**18 wei in an ether
+            # we could send around 470905516896242 wei to the pair, and calculate however many usdc we should get back, or just plan on 1000000
+            # - craft a transaction that sends balance to the pair, and then calls the swap function
+
+            # so, right now I have
+            # pair = next(iter(dex.uniswapv2.dex().pairs()))
+            # pricepoint = [*pair.logs()][-1]
+            # pair.ct.functions.swap(1000000,0,acct.address,b'')
+            # i need to somehow get balance atomically into the swap prior to executing it
+
+            # so, uniswapv2 is token-only.  things need to be funded via token agreements.
+            # in erc20, you can give an 'allowance' to others letting them spend a limited
+            # amount of your balance.  this would be done with a contract that operates
+            # only on the balance of the sender.
+
+            # so: we likely call swapExactETHForTokens on router02 to get weth
+            # then we can perform a test transaction using swapTokensForExactTokens
+                # it may also be efficient to make our own contract that has simpler code
+                # for now we can use router02
 
         # calculate ((sell1_for_0, buy1_with_0),(sell0_for_1, buy0_with_1))
         return (
@@ -271,6 +296,31 @@ class trade:
         )
     def __str__(self):
         return str(self.pair.db) + ':' + self.db.block.hash + '/' + str(self.db.txidx) + ' ' + str(self.db.const0) + '/' + str(self.db.const1)
+
+class router:
+    def __init__(self, addr = abi.uniswapv2_router02_addr):
+        self.ct = w3.eth.contract(
+            address = addr,
+            abi = abi.uniswapv2_router02
+        )
+        WETH = wrap_neterrs(self.ct.functions.WETH())
+        self.wethct = w3.eth.contract(
+            address = WETH,
+            abi = abi.weth
+        )
+    def eth2weth(self, acct, eth):
+        return self.wei2weth(acct, math.round(amnt * 10**18))
+    def wei2weth(self, acct, wei):
+        txn = wrap_neterrs(self.wethct.functions.deposit(), 'buildTransaction', transaction={
+            #'chainId': 1,
+            #'from': acct.address,
+            'value':int(wei),
+            #'gasPrice': w3.toWei('1', 'gwei'),
+            #'nonce': nonce,
+        })
+        txn = w3.eth.account.sign_transaction(txn, private_key=acct)
+        w3.eth.send_raw_transaction(txn.rawTransaction)
+        return txn.hash
 
 # i calculated this using pysym and it is quite wrong.
 # i would like to recalculate using pysym to understand better.

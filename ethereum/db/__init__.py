@@ -110,7 +110,7 @@ class Table:
             #print(self.table.name, 'EXPAND', self.id, result)
             return vals[attr]
         def __str__(self):
-            if self.table.numrequiredcols - self.table.numforeigncols > 0:
+            if self.table.numrequiredcols - self.table.numforeigncols > 1:
                 for col in self.table.cols:
                     # 2021-07-11 col.primary has a type of str, the id
                     if not col.primary and col.type is str:
@@ -146,7 +146,7 @@ class Table:
                     Table.Column(idx + 1, col, 'TEXT')
                     for idx, col in enumerate(strcols)
             ])
-        self.numrequiredcols = 0
+        self.numrequiredcols = 1
         self.numforeigncols = 0
         self.primarykeys = ['id']
         for col, specifier in colspecifiers.items():
@@ -208,6 +208,9 @@ class Table:
             ')')
         Table.tables[self.name] = self
     def ensure(self, *vals, **kwvals):
+        obj = Table.Row(self, *vals,**kwvals)
+        if obj:
+            return obj
         for col, val in zip(self.cols, vals):
             kwvals[col.name] = val
         sqlite_vals = []
