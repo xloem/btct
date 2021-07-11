@@ -2,6 +2,8 @@ from pyweb3 import w3, wrap_neterrs, web3
 import abi
 import db
 
+import random, math
+
 try:
     # i added this line to debug a strange mismatched abi error.  the line prevents the error =/  quick-workaround
     testrecpt = w3.eth.getTransactionReceipt('0xb31fcb852b18303c672b81d90117220624232801ad949bd4047e009eaed73403')
@@ -155,93 +157,34 @@ class pair:
     # it's possibly possible to game that, arbitraging a sibling exchange forever
     # the system lets you borrow money to do that, too.  i may have calculated something wrong.
     # i'm guessing the gas fees and other limits prevent it from being meaningful, which would
-    # be important to understand to know the effective price
+    # be important to understand to know the effective price.
+    ##### this could be clearly answered with a plot
     @staticmethod
     def calc_out(reserve_tup, in_0):
+        # from uniswap library
         amountInWithFee = in_0 * 997
         numerator = amountInWithFee * reserve_tup[1]
         denominator = reserve_tup[0] * 1000 + amountInWithFee;
-        #amountIn * .997 * reserveOut / (reserveIn + amountIn * .997)
 
-        #price = reserveIn / reserveOut
-        #amountIn * .997 / (price + amountIn * .997 / reserveOut)
-
-        #price = reserveOut / reserveIn
-        #amountIn * .997 * price / (1 + amountIn * .997 / reserveIn)
-
-        #price = amountIn / amountOut
-        #amountIn / (amountIn * .997 * reserveOut / (reserveIn + amountIn * .997))
-        #1 / (.997 * reserveOut / (reserveIn + amountIn * .997))
-
-        #?
-        #price=(reserveIn/.997 + amountIn) / reserveOut
-            #convert to price + fees
-            # (amountIn - subfee) * mulfee / price = amountOut
-            # or
-            # (amountIn * mulfee - subfee) / price = amountOut
-            #amountOut = amountIn * reserveOut / (reserveIn / .997 + amountIn)
-            ## might work better other direction unknown, hard to tell if it is reasonable to do
-            #amountOut = amountIn * reserveOut / (reserveIn / .997 + amountIn)
-            #amountOut * reserveIn / .997 + amountOut * amountIn = amountIn * reserveOut
-            #amountOut * (reserveIn / .997 + amountIn) = amountIn * reserveOut
-            #(reserveIn / .997 + amountIn) / amountIn = reserveOut / amountOut
-            #reserveIn / .997 / amountIn + 1 = reserveOut / amountOut
-            #reserveIn / .997 / amountIn = reserveOut / amountOut - 1
-            #reserveIn / (.997 * amountIn) = reserveOut / amountOut - 1
-            #reserveIn / (.997 * amountIn) = reserveOut / amountOut - amountOut / amountOut
-            #reserveIn / (.997 * amountIn) = (reserveOut - amountOut) / amountOut
-            #1 + reserveIn / (.997 * amountIn) = reserveOut / amountOut
-            #amountOut * (1 + reserveIn / (.997 * amountIn)) = reserveOut
-            #amountOut * (1 + reserveIn / (.997 * amountIn)) = reserveOut
-            #amountOut = reserveOut / (1 + reserveIn / (.997 * amountIn))
-            #amountOut = reserveOut / (1 + reserveIn / (.997 * amountIn))
-            #amountOut = reserveOut / ((.997 * amountIn + reserveIn) / (.997 * amountIn))
-            #amountOut = reserveOut * (amountIn * .997) / (.997 * amountIn + reserveIn)
-            #amountOut = reserveOut/reserveIn * (amountIn * .997) / (.997 * amountIn/reserveIn + 1)
-
-            #    # the price factor here is not simply a multiplication.
-            #    # first the amount in is scaled down.
-            #    # really you're buying into an algebraic expression
-            #amountOut = reserveOut / (1 + reserveIn / (.997 * amountIn))
-            #1 / amountOut = (1 + reserveIn / (.997 * amountIn)) / reserveOut
-            #reserveOut / amountOut = 1 + reserveIn / (.997 * amountIn)
-
-                # the amount you get back is a nonlinear function of how much you put in
-                # we coudl cast as feeEq, utilising constants
-                # row-specific constants
-
-                    # the return equation is specific to all uniswapv2 pairs
-                    # it's bounded in that you can't get more than the constants associated
-                    # basically a supply.
-                    # other markets have order tables defining the supply and price:
-                    ### i.e. for other markets the situation is comparable, it just isn't
-                    ### defined by one single equation.  it's defined by many placed orders.
-
-                    ##### let's make the price functions methods of the pair object
-                    ##### and store the reserve data.
-                    ##### price is always a function of how much is put in.
-                    ##### and only so much can be taken out.
-
-        # note that this can be fractional, in which case the contract would round down
-        # some amountIn can be discarded in that case
-        return numerator / denominator
+        # note that this can be fractional, in which case it gets rounded down
+        # some amountIn can be wasted in that case.  calling calc_in on the result shows how much.
+        return numerator // denominator
 
     @staticmethod
     def calc_in(reserve_tup, out_1):
+        # from uniswap library
         numerator = reserve_tup[0] * out_1 * 1000
         denominator = (reserve_tup[1] - out_1) * 997
         # this can be fractional too, in which case adding 1 to the floored answer
-        # would be needed to provide enough in to cover the fraction
-        return numerator / denominator
+        # provides enough in to cover the fraction
+        if numerator % denominator:
+            return numerator // denominator + 1
+        else:
+            return numerator // denominator
 
     @staticmethod
-    def _test():
-        from random import randint
-        reserves = (
-            randint(1, 10**100),
-            randint(1, 10**100)
-        )
-        in_0 = randint(1, 10**17)
+    def _test(in_0 = random.randint(1, 10**17), reserve0=random.randint(1,10**100), reserve1=random.randint(1,10**100)):
+        reserves = (reserve0, reserve1)
         out_1 = int(pair.calc_out(reserves, in_0))
         balance = (
             reserves[0] + in_0,
@@ -297,11 +240,7 @@ class trade:
 # i calculated this using pysym and it is quite wrong.
 # i would like to recalculate using pysym to understand better.
 def out_for_in(out_reserve, in_amt, in_reserve):
-    # assuming large reserves and smaller but also large in amount?
-    # if this is correct, we can put 10000 in when both reserves are at 10000000
-    #   and get 9979 back.  the fee is only a little more than 2% under those conditions
     return in_amt * out_reserve / ((3988/1977)*in_amt + in_reserve)
-
 
 
 if __name__ == '__main__':
