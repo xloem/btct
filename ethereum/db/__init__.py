@@ -109,6 +109,8 @@ class Table:
             self.kwparams = vals
             #print(self.table.name, 'EXPAND', self.id, result)
             return vals[attr]
+        def __repr__(self):
+            return str(self)
         def __str__(self):
             if self.table.numrequiredcols - self.table.numforeigncols > 1:
                 for col in self.table.cols:

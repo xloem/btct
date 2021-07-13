@@ -21,6 +21,16 @@ class dex:
             abi = abi.uniswapv2_factory
         )
 
+    def tokens(self):
+        tokenset = set()
+        for pair in self.pairs():
+            for token in (pair.db.token0, pair.db.token1):
+                id = db.hex2b(token.addr)
+                if id not in tokenset:
+                    tokenset.add(id)
+                    yield token
+        
+
     ## pairs iterator for now, better to look up by attributes like tokens or volume or such i guess
     ## this could also be getitem[]
     ## but maybe what's important to think about is getting what's needed into the database, rather than accessing it
@@ -308,17 +318,37 @@ class router:
             address = WETH,
             abi = abi.weth
         )
+    # i'm making acct with eth_account.Account.from_key()
     def eth2weth(self, acct, eth):
         return self.wei2weth(acct, math.round(amnt * 10**18))
     def wei2weth(self, acct, wei):
+        # 1 gwei is 10**9 wei (and 10**-9 eth)
+        # gas prices are in gwei.  each gas unit spends that many gwei as fee.
+        ## the block explorer shows how much gas a transaction uses.
+        ## the transaction fails on the network if it exceeds its limit, but consumed gas is
+        ##  not refunded.
+
+        ###### web3 can calculate gas price for e.g. time and probability
+        ###### web3.gas_strategies.time_based.fast_gas_price_strategy: 60 seconds
+        ###### web3.gas_strategies.time_based.medium_gas_price_strategy: 5 minutes
+        ###### web3.gas_strategies.time_based.slow_gas_price_strategy: 1 hour
+        ###### web3.gas_strategies.time_based.glacial_gas_price_strategy: 24 hours
+        ############### there is a cachign middleware that comes with web3 that can speed
+        ############### up the block requests needed to calculate price
+        ###### w3.eth.set_gas_price_strategy(medium_gas_price_strategy)
+        ###### w3.eth.generate_gas_price()
+        ### web3.eth.getTransactionReceipt(txid).gasUsed
+        ### web3.eth.getTransaction(txid).gasPrice
+
         txn = wrap_neterrs(self.wethct.functions.deposit(), 'buildTransaction', transaction={
             #'chainId': 1,
-            #'from': acct.address,
+            'from': acct.address,
             'value':int(wei),
-            #'gasPrice': w3.toWei('1', 'gwei'),
-            #'nonce': nonce,
+            #'gasPrice': w3.toWei(6, 'gwei'),
+            #'gas': 45038,
+            'nonce': w3.eth.get_transaction_count(acct.address)
         })
-        txn = w3.eth.account.sign_transaction(txn, private_key=acct)
+        txn = w3.eth.account.sign_transaction(txn, private_key=acct.privateKey)
         w3.eth.send_raw_transaction(txn.rawTransaction)
         return txn.hash
 
