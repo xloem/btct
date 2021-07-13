@@ -4,6 +4,7 @@ if sys.version_info < (3,6):
     # using tuples instead of kwparams would resolve the limitation
     sys.exit("I'm not sure tables will function correctly without python 3.6 dict ordering")
 
+import binascii
 import pickle
 import sqlite3
 import typing
@@ -38,6 +39,9 @@ class Table:
             self.table = table
             for col, val in zip(table.cols, params):
                 kwparams[col.name] = val
+            if 'addr' in kwparams and 'id' not in kwparams:
+                kwparams['id'] = kwparams['addr']
+                del kwparams['addr']
             self.kwparams = kwparams
             #print(table.name, 'ROW', {key:str(val) for key,val in kwparams.items()})
             for key, val in kwparams.items():
@@ -72,7 +76,7 @@ class Table:
                 Table.Row(self.table, *row)
                 for row in self._selectraw(wherestr, *wherevals)
             )
-        def _selectraw(self, wherestr = '', *wherevals):
+        def _where(self, wherestr = '', *wherevals):
             if 'id' in self.kwparams:
                 wherestr = 'WHERE id == ? ' + wherestr
                 wherevals = (hex2b(self.id), *wherevals)
@@ -88,9 +92,20 @@ class Table:
                     *(o2sql(getattr(self, key)) for key in self.kwparams.keys()),
                     *wherevals
                 )
+            return wherestr, wherevals
+        def _selectraw(self, wherestr = '', *wherevals):
+            try:
+                wherestr, wherevals = self._where(wherestr, *wherevals)
+            except binascii.Error:
+                wherestr, wherevals = 'FALSE', ()
             query = 'SELECT * FROM ' + self.table.name + ' ' + wherestr
             #print(query, wherevals)
             return c.execute(query, wherevals)
+        def _update(self, **kwparams):
+            wherestr, wherevals = self._where()
+            query = 'UPDATE ' + self.table.name + ' SET `' + ', `'.join(key + '` = ?' for key in kwparams.keys()) + ' ' + wherestr
+            wherevals.append(kwparams.values())
+            c.execute(query, wherevals)
         def __len__(self):
             return len(self._selectraw().fetchall())
         def __bool__(self):
@@ -109,6 +124,10 @@ class Table:
             self.kwparams = vals
             #print(self.table.name, 'EXPAND', self.id, result)
             return vals[attr]
+        def __getitem__(self, item):
+            return getattr(self, item)
+        def __setitem__(self, item, value):
+            self.update(**{item:value})
         def __repr__(self):
             return str(self)
         def __str__(self):

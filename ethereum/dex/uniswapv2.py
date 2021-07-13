@@ -1,4 +1,5 @@
 from pyweb3 import w3, wrap_neterrs, web3
+import eth_hash
 import abi
 import db
 
@@ -29,7 +30,39 @@ class dex:
                 if id not in tokenset:
                     tokenset.add(id)
                     yield token
-        
+
+    def pair(self, token0, token1):
+        tokens=[token0,token1]
+        for idx in range(2):
+            token = tokens[idx]
+            if type(token) is str:
+                token = db.token(addr = token)
+                if token.addr token:
+                    tokens[idx] = token
+                else:
+                    tokens[idx] = db.token(symbol = token)
+        if tokens[0].addr > tokens[1].addr:
+            tokens[0], tokens[1] = tokens[1], tokens[0]
+        pairdb = db.pair(token0 = tokens[0], token1 = tokens[1], dex = self.db)
+        if not pairdb:
+            Hash = eth_hash.backends.auto.AutoBackend()
+            # uniswapv2 pair formula
+            pairaddr = Hash.keccak256(
+                b'\xff' +
+                db.hex2b(self.db.addr) +
+                Hash.keccak256(
+                    db.hex2b(tokens[0].addr) +
+                    db.hex2b(tokens[1].addr)) +
+                bytes.fromhex('96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f')
+            )[-20:]
+            pairdb = db.pair(
+                pairaddr,
+                tokens[0].addr,
+                tokens[1].addr,
+                self.db.addr
+            )
+        return pair(self, pairdb)
+
 
     ## pairs iterator for now, better to look up by attributes like tokens or volume or such i guess
     ## this could also be getitem[]
@@ -37,9 +70,10 @@ class dex:
     def pairs(self, startidx = 0):
         idx = 0
         for _pair in db.pair(dex=self.db.addr):
-            idx = _pair.index
-            if idx >= startidx:
-                yield pair(self, _pair)
+            if _pair.index is not None:
+                idx = _pair.index
+                if idx >= startidx:
+                    yield pair(self, _pair)
         pairlen = wrap_neterrs(self.ct.functions.allPairsLength())
         for pairidx in range(max(idx+1,startidx), pairlen):
             pairaddr = wrap_neterrs(self.ct.functions.allPairs(pairidx))
@@ -77,6 +111,8 @@ class dex:
                     self.db.addr,
                     index=pairidx
                 )
+            elif not pairdb.index:
+                pairdb['index'] = pairidx
             yield pair(self, pairdb)
 
 class pair:
@@ -290,6 +326,7 @@ class trade:
             # then we can perform a test transaction using swapTokensForExactTokens
                 # it may also be efficient to make our own contract that has simpler code
                 # for now we can use router02
+        # TODO: subtract skim from price
 
         # calculate ((sell1_for_0, buy1_with_0),(sell0_for_1, buy0_with_1))
         return (
