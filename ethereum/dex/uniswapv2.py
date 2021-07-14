@@ -34,13 +34,7 @@ class dex:
     def pair(self, token0, token1):
         tokens=[token0,token1]
         for idx in range(2):
-            token = tokens[idx]
-            if type(token) is str:
-                token = db.token(addr = token)
-                if token.addr token:
-                    tokens[idx] = token
-                else:
-                    tokens[idx] = db.token(symbol = token)
+            tokens[idx] = db.token(tokens[idx])
         if tokens[0].addr > tokens[1].addr:
             tokens[0], tokens[1] = tokens[1], tokens[0]
         pairdb = db.pair(token0 = tokens[0], token1 = tokens[1], dex = self.db)

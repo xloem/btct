@@ -42,6 +42,31 @@ class Table:
             if 'addr' in kwparams and 'id' not in kwparams:
                 kwparams['id'] = kwparams['addr']
                 del kwparams['addr']
+            if 'id' in kwparams:
+                try:
+                    hex2b(kwparams['id'])
+                except binascii.Error:
+                    found = False
+                    id = kwparams['id']
+                    for col in self.table.cols:
+                        if not col.foreign:
+                            if col.type is type(id) and col.name not in kwparams:
+                                found = True
+                        else:
+                            table = Table.tables[col.foreign]
+                            try:
+                                if table(id):
+                                    found = True
+                            except binascii.Error:
+                                pass
+                        if found:
+                            kwparams[col.name] = id
+                            del kwparams['id']
+                            break
+
+                    if 'id' in kwparams:
+                        raise
+
             self.kwparams = kwparams
             #print(table.name, 'ROW', {key:str(val) for key,val in kwparams.items()})
             for key, val in kwparams.items():
@@ -94,10 +119,7 @@ class Table:
                 )
             return wherestr, wherevals
         def _selectraw(self, wherestr = '', *wherevals):
-            try:
-                wherestr, wherevals = self._where(wherestr, *wherevals)
-            except binascii.Error:
-                wherestr, wherevals = 'FALSE', ()
+            wherestr, wherevals = self._where(wherestr, *wherevals)
             query = 'SELECT * FROM ' + self.table.name + ' ' + wherestr
             #print(query, wherevals)
             return c.execute(query, wherevals)
@@ -115,7 +137,7 @@ class Table:
             vals = None
             for row in self._select():
                 if vals is not None:
-                    raise AttributeError(attr)
+                    raise LookupError('multiple ' + self.table.name + 's: ' + str(self.kwparams))
                 vals = row.kwparams
             if vals is None:
                 raise LookupError(self.table.name + ' not found: ' + str(self.kwparams))
