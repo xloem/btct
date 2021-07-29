@@ -35,6 +35,11 @@ class dex:
         tokens=[token0,token1]
         for idx in range(2):
             tokens[idx] = db.token(tokens[idx])
+            try:
+                tokens[idx].addr
+            except LookupError as e:
+                tokens[idx] = next(iter(tokens[idx]))
+                print('Warning: ' + str(e) + '; selecting first of ' + tokens[idx].addr)
         if tokens[0].addr > tokens[1].addr:
             tokens[0], tokens[1] = tokens[1], tokens[0]
         pairdb = db.pair(token0 = tokens[0], token1 = tokens[1], dex = self.db)
