@@ -1,2 +1,2 @@
 discord>=1.7.3
-kucoin>=0.1
+python-kucoin>=2.1.2
