@@ -1,6 +1,7 @@
 import web3
 import eth_abi
 import requests
+import asyncio
 from web3 import Web3, _utils as utils
 
 from web3.auto.websocket import w3 as w3_websocket
@@ -31,6 +32,20 @@ while True:
     import time
     time.sleep(0.5)
 
+def blockfrom(fromBlock):
+    block = fromBlock #kwparams.get('fromBlock')
+    if block in (None, 'earliest'):
+        block = 0
+    if hasattr(w3, 'block_limit'):
+        block = max(block, w3.block_limit + w3.eth.block_number)
+    return block
+
+def blockto(toBlock):
+    block = toBlock #kwparams.get('toBlock')
+    if block in (None, 'latest'):
+        block = w3.eth.block_number
+    return block
+
 def wrap_neterrs(func, method = 'call', **kwparams):
     count = 0
     if kwparams.get('fromBlock',-1) is None and hasattr(func.web3, 'block_limit'):
@@ -51,6 +66,12 @@ def wrap_neterrs(func, method = 'call', **kwparams):
         except requests.exceptions.ConnectionError as e:
             print('network error', e)
             continue
+        except asyncio.exceptions.TimeoutError as e:
+            if hasattr(func.web3.provider, 'websocket_timeout'):
+                func.web3.provider.websocket_timeout *= 2
+                print('request timed out; timeout lengthened to ' + str(func.web3.provider.websocket_timeout))
+                continue
+            raise
         except ValueError as e:
             if type(e.args[0]) is dict:
                 count += 1
