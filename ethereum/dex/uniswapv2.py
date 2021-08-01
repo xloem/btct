@@ -1,9 +1,9 @@
-from pyweb3 import w3, wrap_neterrs, web3
+from pyweb3 import w3, wrap_neterrs, web3, blockfrom, blockto
 import eth_hash
 import abi
 import db
 
-import random, math
+import asyncio, random, math
 
 try:
     # i added this line to debug a strange mismatched abi error.  the line prevents the error =/  quick-workaround
@@ -13,8 +13,9 @@ except web3.exceptions.TransactionNotFound:
     pass
 
 class dex:
-    def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2'):
+    def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2', minblock=10000835):
         self.db = db.dex(address)
+        self.minblock = minblock
         if not self.db:
             self.db = db.dex.ensure(address, name)
         self.ct = w3.eth.contract(
@@ -127,15 +128,27 @@ class pair:
     def logs(self, fromBlock=None, toBlock=None, **kwparams):
         # the best timestamp granularity appears to be the timestamp of the block, which is well known
         # we could display them evenly distributed over the block, if desired
-        
-        #if fromBlock is None:
-        #   fromBlock = 'earliest'
         if toBlock is None:
             toBlock = 'latest'
         # next: back by db. might mean calculating buy/sell prices
         # it looks like logIndex might be exchangeable with something similar to txOut
-        for log in wrap_neterrs(self.ct.events.Sync(), 'getLogs', fromBlock=fromBlock,toBlock=toBlock,**kwparams):
-            yield trade(self, db.trade.ensure(
+        fromBlock = blockfrom(fromBlock)
+        if fromBlock <= self.dex.minblock:
+            fromBlock = self.dex.minblock
+            print('Scanning blockchain from block ' + str(fromBlock) + '...')
+        chunkSize = 256#1024*128#*1024
+        while fromBlock <= blockto(toBlock):
+            midBlock = toBlock
+            if blockto(midBlock) > fromBlock + chunkSize:
+                midBlock = fromBlock + chunkSize
+            try:
+                logs = wrap_neterrs(self.ct.events.Sync(), 'getLogs', fromBlock=fromBlock,toBlock=midBlock,**kwparams)
+            except asyncio.exceptions.TimeoutError as e:
+                chunkSize //= 2
+                print(e, 'dropping chunkSize to', chunkSize, 'at block', fromBlock)
+                continue
+            for log in logs:
+                yield trade(self, db.trade.ensure(
                     id=log.transactionHash,
                     blocknum=log.blockNumber,
                     blockidx=log.transactionIndex,
@@ -147,7 +160,8 @@ class pair:
                     trader1=db.acct.ensure(self.db.addr),
                     const0=log.args.reserve0,
                     const1=log.args.reserve1
-            ))
+                ))
+            fromBlock += chunkSize
     def reserves(self):
         # call(), inside wrap_neterrs, can take transaction params and a block identifier or number
         # note that these functions also have .estimateGas as well as .call
@@ -392,6 +406,15 @@ class router:
 # i would like to recalculate using pysym to understand better.
 def out_for_in(out_reserve, in_amt, in_reserve):
     return in_amt * out_reserve / ((3988/1977)*in_amt + in_reserve)
+
+# quick fudge
+def tok2ct(token):
+    pair = dex().pair(token, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2') # i think weth is this
+    tokenaddr = pair.db.token0.addr
+    return w3.eth.contract(
+        address=tokenaddr,
+        abi=abi.uniswapv2_erc20
+    )
 
 
 if __name__ == '__main__':

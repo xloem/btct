@@ -66,12 +66,12 @@ def wrap_neterrs(func, method = 'call', **kwparams):
         except requests.exceptions.ConnectionError as e:
             print('network error', e)
             continue
-        except asyncio.exceptions.TimeoutError as e:
-            if hasattr(func.web3.provider, 'websocket_timeout'):
-                func.web3.provider.websocket_timeout *= 2
-                print('request timed out; timeout lengthened to ' + str(func.web3.provider.websocket_timeout))
-                continue
-            raise
+        #except asyncio.exceptions.TimeoutError as e:
+        #    if hasattr(func.web3.provider, 'websocket_timeout'):
+        #        func.web3.provider.websocket_timeout *= 2
+        #        print('request timed out; timeout lengthened to ' + str(func.web3.provider.websocket_timeout))
+        #        continue
+        #    raise
         except ValueError as e:
             if type(e.args[0]) is dict:
                 count += 1
