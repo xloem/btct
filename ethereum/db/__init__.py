@@ -42,6 +42,7 @@ class Table:
             if 'addr' in kwparams and 'id' not in kwparams:
                 kwparams['id'] = kwparams['addr']
                 del kwparams['addr']
+            #print(self.table.name, kwparams)
             if 'id' in kwparams:
                 try:
                     hex2b(kwparams['id'])
@@ -72,7 +73,7 @@ class Table:
             for key, val in kwparams.items():
                 col = self.table.colsdict[key]
                 if col.foreign is not None:
-                    if type(val) is not Table.Row:
+                    if type(val) is not Table.Row and val is not None:
                         val = Table.Row(Table.tables[col.foreign], val)
                         kwparams[key] = val
                 elif col.primary:
@@ -146,14 +147,17 @@ class Table:
             self.kwparams = vals
             #print(self.table.name, 'EXPAND', self.id, result)
             return vals[attr]
+        #def __setattr__(self, atrr, value):
+        #    self._update(**{attr:value})
         def __getitem__(self, item):
             return getattr(self, item)
         def __setitem__(self, item, value):
-            self.update(**{item:value})
+            #return setattr(self, item, value)
+            self._update(**{item:value})
         def __repr__(self):
             return str(self)
         def __str__(self):
-            if self.table.numrequiredcols - self.table.numforeigncols > 1:
+            if self.table.numrequiredcols - self.table.numforeignrequiredcols > 1:
                 for col in self.table.cols:
                     # 2021-07-11 col.primary has a type of str, the id
                     if not col.primary and col.type is str:
@@ -191,6 +195,7 @@ class Table:
             ])
         self.numrequiredcols = 1
         self.numforeigncols = 0
+        self.numforeignrequiredcols = 0
         self.primarykeys = ['id']
         for col, specifier in colspecifiers.items():
             primary = False
@@ -230,6 +235,8 @@ class Table:
                 specifier = Table.Row
                 self.coltables[col] = foreign
                 self.numforeigncols += 1
+                if not optional:
+                    self.numforeignrequiredcols += 1
             else:
                 raise NotImplementedError("column specifier: " + repr(specifier))
             if primary:
@@ -315,11 +322,11 @@ class PrimaryKey(typing.Generic[typing.T]):
 class Big(typing.Generic[typing.T]):
     pass
 
-token = Table('token', symbol=str)
-dex = Table('dex', name=str)
-acct = Table('acct')
 block = Table('block', num=int)
-pair = Table('pair', token0='token', token1='token', dex='dex', index=Optional[int])
+acct = Table('acct')
+token = Table('token', symbol=str)
+dex = Table('dex', name=str, start=Optional['block'])
+pair = Table('pair', token0='token', token1='token', dex='dex', index=Optional[int], latest_synced_trade=Optional['trade'])
 
 trade = Table('trade',
         # for ordering
