@@ -154,11 +154,15 @@ class pair:
         # it looks like logIndex might be exchangeable with something similar to txOut
         fromBlock = blockfrom(fromBlock)
         updateLatest = False
-        if fromBlock <= self.dex.db.start.num:
+        if fromBlock <= self.dex.db.start.num and not self.db.latest_synced_trade:
             fromBlock = self.dex.db.start.num
             print('Scanning blockchain from block', fromBlock, 'for', self.db, '...')
             updateLatest = True
         if self.db.latest_synced_trade and fromBlock <= self.db.latest_synced_trade.blocknum:
+            midBlock = min(self.db.latest_synced_trade.blocknum, blockto(toBlock))
+            for t in db.trade(pair=self.db).ascending('blocknum', 'blocknum >= ? and blocknum < ?', fromBlock, midBlock):
+                yield trade(self, t)
+            fromBlock = midBlock
             updateLatest = True
         chunkSize = 256#1024*128#*1024
         while fromBlock <= blockto(toBlock):
