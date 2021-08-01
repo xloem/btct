@@ -15,9 +15,13 @@ except web3.exceptions.TransactionNotFound:
 class dex:
     def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2', minblock=10000835):
         self.db = db.dex(address)
-        self.minblock = minblock
         if not self.db:
-            self.db = db.dex.ensure(address, name)
+            # todo? calculate the minblock based on the chain
+            block = db.block(num=minblock)
+            if not block:
+                block = w3.eth.getBlock(minblock)
+                block = db.block.ensure(block.hash, block.number)
+            self.db = db.dex.ensure(address, name, db.block(num=minblock))
         self.ct = w3.eth.contract(
             address = address,
             abi = abi.uniswapv2_factory
@@ -70,50 +74,54 @@ class dex:
     def pairs(self, startidx = 0):
         idx = 0
         for _pair in db.pair(dex=self.db.addr):
-            if _pair.index is not None:
-                idx = _pair.index
-                if idx >= startidx:
-                    yield pair(self, _pair)
+            if _pair.index is not None and _pair.index >= startidx:
+                while idx < _pair.index:
+                    yield self.pair_by_index(idx)
+                    idx += 1
+                yield pair(self, _pair)
+                idx = _pair.index + 1
         pairlen = wrap_neterrs(self.ct.functions.allPairsLength())
-        for pairidx in range(max(idx+1,startidx), pairlen):
-            pairaddr = wrap_neterrs(self.ct.functions.allPairs(pairidx))
-            pairdb = db.pair[pairaddr]
-            if not pairdb:
-                pairct = w3.eth.contract(
-                    address = pairaddr,
-                    abi = abi.uniswapv2_pair
-                )
-                tokenaddrs = (pairct.functions.token0,pairct.functions.token1)
-                tokens = [None, None]
-                for tokenidx in range(2):
-                    tokenaddr = wrap_neterrs(tokenaddrs[tokenidx]())
-                    token = db.token(tokenaddr)
-                    if token:
-                        symbol = token.symbol
-                    else:
-                        try:
-                            symbol = wrap_neterrs(w3.eth.contract(
-                                address=tokenaddr,
-                                abi=abi.uniswapv2_erc20
-                            ).functions.symbol())
-                        except Exception as e: # this absorbs keyboard-interrupt, put error type in? .. the error is thrown from an underlying issue in the library, resulting from calling to the wrong spec.  other errors could be thrown, add 'em I guess.
-                            if isinstance(e, OverflowError) or isinstance(e, web3.exceptions.ContractLogicError) or isinstance(e, web3.exceptions.BadFunctionCallOutput):
-                                print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
-                                symbol = tokenaddr
-                            else:
-                                raise e
-                        token = db.token.ensure(tokenaddr, symbol)
-                    tokens[tokenidx] = token
-                pairdb = db.pair(
-                    pairaddr,
-                    tokens[0].addr,
-                    tokens[1].addr,
-                    self.db.addr,
-                    index=pairidx
-                )
-            elif not pairdb.index:
-                pairdb['index'] = pairidx
-            yield pair(self, pairdb)
+        for pairidx in range(max(idx,startidx), pairlen):
+            yield self.pair_by_index(pairidx)
+    def pair_by_index(self, pairidx):
+        pairaddr = wrap_neterrs(self.ct.functions.allPairs(pairidx))
+        pairdb = db.pair[pairaddr]
+        if not pairdb:
+            pairct = w3.eth.contract(
+                address = pairaddr,
+                abi = abi.uniswapv2_pair
+            )
+            tokenaddrs = (pairct.functions.token0,pairct.functions.token1)
+            tokens = [None, None]
+            for tokenidx in range(2):
+                tokenaddr = wrap_neterrs(tokenaddrs[tokenidx]())
+                token = db.token(tokenaddr)
+                if token:
+                    symbol = token.symbol
+                else:
+                    try:
+                        symbol = wrap_neterrs(w3.eth.contract(
+                            address=tokenaddr,
+                            abi=abi.uniswapv2_erc20
+                        ).functions.symbol())
+                    except Exception as e: # this absorbs keyboard-interrupt, put error type in? .. the error is thrown from an underlying issue in the library, resulting from calling to the wrong spec.  other errors could be thrown, add 'em I guess.
+                        if isinstance(e, OverflowError) or isinstance(e, web3.exceptions.ContractLogicError) or isinstance(e, web3.exceptions.BadFunctionCallOutput):
+                            print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
+                            symbol = tokenaddr
+                        else:
+                            raise e
+                    token = db.token.ensure(tokenaddr, symbol)
+                tokens[tokenidx] = token
+            pairdb = db.pair(
+                pairaddr,
+                tokens[0].addr,
+                tokens[1].addr,
+                self.db.addr,
+                index=pairidx
+            )
+        elif pairdb.index != pairidx:
+            pairdb['index'] = pairidx
+        return pair(self, pairdb)
 
 class pair:
     def __init__(self, dex, dbpair):
@@ -133,9 +141,13 @@ class pair:
         # next: back by db. might mean calculating buy/sell prices
         # it looks like logIndex might be exchangeable with something similar to txOut
         fromBlock = blockfrom(fromBlock)
-        if fromBlock <= self.dex.minblock:
-            fromBlock = self.dex.minblock
-            print('Scanning blockchain from block ' + str(fromBlock) + '...')
+        updateLatest = False
+        if fromBlock <= self.dex.db.start.num:
+            fromBlock = self.dex.db.start.num
+            print('Scanning blockchain from block', fromBlock, 'for', self.db, '...')
+            updateLatest = True
+        if self.db.latest_synced_trade and fromBlock <= self.db.latest_synced_trade.blocknum:
+            updateLatest = True
         chunkSize = 256#1024*128#*1024
         while fromBlock <= blockto(toBlock):
             midBlock = toBlock
@@ -147,8 +159,9 @@ class pair:
                 chunkSize //= 2
                 print(e, 'dropping chunkSize to', chunkSize, 'at block', fromBlock)
                 continue
+            #print(fromBlock, '-', midBlock, ':', len(logs))
             for log in logs:
-                yield trade(self, db.trade.ensure(
+                t = db.trade.ensure(
                     id=log.transactionHash,
                     blocknum=log.blockNumber,
                     blockidx=log.transactionIndex,
@@ -160,7 +173,12 @@ class pair:
                     trader1=db.acct.ensure(self.db.addr),
                     const0=log.args.reserve0,
                     const1=log.args.reserve1
-                ))
+                )
+                if updateLatest:
+                    if not self.db.latest_synced_trade or self.db.latest_synced_trade.blocknum < t.blocknum:
+                        self.db['latest_synced_trade'] = t
+                yield trade(self, t)
+            db.c.commit()
             fromBlock += chunkSize
     def reserves(self):
         # call(), inside wrap_neterrs, can take transaction params and a block identifier or number

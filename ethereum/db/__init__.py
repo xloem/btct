@@ -127,14 +127,18 @@ class Table:
         def _update(self, **kwparams):
             wherestr, wherevals = self._where()
             query = 'UPDATE ' + self.table.name + ' SET `' + ', `'.join(key + '` = ?' for key in kwparams.keys()) + ' ' + wherestr
-            wherevals.append(kwparams.values())
-            c.execute(query, wherevals)
+            c.execute(query, (*kwparams.values(), *wherevals))
+        def __conform__(self, protocol):
+            if protocol is sqlite3.PrepareProtocol:
+                return self.id
+            else:
+                raise AttributeError(self, '__conform__')
         def __len__(self):
             return len(self._selectraw().fetchall())
         def __bool__(self):
             return self._selectraw().fetchone() is not None
         def __getattr__(self, attr):
-            #print(self.table.name, self.id, 'getattr')
+            #print(self.table.name, self.id, 'getattr', attr)
             vals = None
             for row in self._select():
                 if vals is not None:
@@ -164,9 +168,9 @@ class Table:
                         val = getattr(self, col.name)
                         if val is not None:
                             return val
-            if self.table.numforeigncols > 0:
+            if self.table.numforeignrequiredcols > 0:
                 #print([getattr(self, col.name) for col in self.table.cols[1:]])
-                return '/'.join((str(getattr(self, col.name)) for col in self.table.cols[1:] if col.foreign is not None))
+                return '/'.join((str(getattr(self, col.name)) for col in self.table.cols[1:] if col.foreign is not None and not col.optional))
             else:
                 for col in self.table.cols:
                     if col.type is not str and not isinstance(col.type, bytes):
