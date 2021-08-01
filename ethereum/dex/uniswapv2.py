@@ -12,16 +12,23 @@ try:
 except web3.exceptions.TransactionNotFound:
     pass
 
+def _ensureblock(numorid):
+    if type(numorid) is int:
+        dbblock = db.block(num = numorid)
+    else:
+        dbblock = db.block[numorid]
+    if not dbblock:
+        ethblock = w3.eth.getBlock(numorid)
+        dbblock = db.block.ensure(ethblock.hash, ethblock.number, ethblock.timestamp)
+    return dbblock
+
 class dex:
     def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2', minblock=10000835):
+        dbblock = _ensureblock(minblock)
         self.db = db.dex(address)
         if not self.db:
             # todo? calculate the minblock based on the chain
-            block = db.block(num=minblock)
-            if not block:
-                block = w3.eth.getBlock(minblock)
-                block = db.block.ensure(block.hash, block.number)
-            self.db = db.dex.ensure(address, name, db.block(num=minblock))
+            self.db = db.dex.ensure(address, name, dbblock)
         self.ct = w3.eth.contract(
             address = address,
             abi = abi.uniswapv2_factory
@@ -297,6 +304,7 @@ class trade:
     def __init__(self, pair, db):
         self.pair = pair
         self.db = db
+        _ensureblock(self.db.block.addr)
     def reserves(self):
         return (self.db.const0, self.db.const1)
     def token0_possible(self, token1_have):
@@ -433,7 +441,6 @@ def tok2ct(token):
         address=tokenaddr,
         abi=abi.uniswapv2_erc20
     )
-
 
 if __name__ == '__main__':
     pair._test()

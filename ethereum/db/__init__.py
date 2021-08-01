@@ -326,7 +326,7 @@ class PrimaryKey(typing.Generic[typing.T]):
 class Big(typing.Generic[typing.T]):
     pass
 
-block = Table('block', num=int)
+block = Table('block', num=int, time=int)
 acct = Table('acct')
 token = Table('token', symbol=str)
 dex = Table('dex', name=str, start=Optional['block'])
