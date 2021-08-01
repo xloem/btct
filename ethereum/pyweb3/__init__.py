@@ -55,11 +55,11 @@ def wrap_neterrs(func, method = 'call', **kwparams):
             return getattr(func, method)(**kwparams)
         except web3.exceptions.BadFunctionCallOutput as e:
             if type(e.__cause__) is eth_abi.exceptions.InsufficientDataBytes:
-                if ' 0 ' in e.__cause__.args[0] and count < 1024:
-                    print('expecting a retryable insufficient data error:', e, e.__cause__, count)
+                if ' 0 ' in e.__cause__.args[0] and count < 512:
+                    print('expecting a retryable insufficient data error:', e, e.__cause__, count, '/', 512)
                     count += 1
                     continue
-            raise e
+            raise web3.exceptions.SolidityError(*e.args)
         except requests.exceptions.HTTPError as e:
             print('network error', e)
             continue
@@ -88,6 +88,4 @@ def wrap_neterrs(func, method = 'call', **kwparams):
                     continue
             raise e
         except OverflowError as e:
-            raise web3.exceptions.SolidityError(*e.args)
-        except web3.exceptions.BadFunctionCallOutput as e:
             raise web3.exceptions.SolidityError(*e.args)
