@@ -328,7 +328,7 @@ class Big(typing.Generic[typing.T]):
 
 block = Table('block', num=int, time=int)
 acct = Table('acct')
-token = Table('token', symbol=str)
+token = Table('token', symbol=str, decimals=int)
 dex = Table('dex', name=str, start=Optional['block'])
 pair = Table('pair', token0='token', token1='token', dex='dex', index=Optional[int], latest_synced_trade=Optional['trade'])
 

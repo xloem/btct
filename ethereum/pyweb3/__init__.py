@@ -87,3 +87,7 @@ def wrap_neterrs(func, method = 'call', **kwparams):
                     func.web3.block_limit = -128
                     continue
             raise e
+        except OverflowError as e:
+            raise web3.exceptions.SolidityError(*e.args)
+        except web3.exceptions.BadFunctionCallOutput as e:
+            raise web3.exceptions.SolidityError(*e.args)

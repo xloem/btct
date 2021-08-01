@@ -17,8 +17,19 @@ import dex.uniswapv2
 
 usv2 = dex.uniswapv2.dex()
 
+tokens = usv2.tokens()
 for pair in usv2.pairs():
     #print(pair.db.index, pair.db)
-    for tx in pair.logs():
-        print(tx)
+    latest_synced_trade = pair.db.latest_synced_trade
+    fromBlock = latest_synced_trade.blocknum if latest_synced_trade else 'earliest'
+    for tx in pair.logs(fromBlock = fromBlock):
+        prices = tx.prices((1000000, 1000000))
+        decimals0 = pair.db.token0.decimals - pair.db.token1.decimals
+        decimals1 = -decimals0
+        prices = (
+            (prices[0][0] / 10**decimals0, prices[0][1] / 10**decimals0),
+            (prices[1][0] / 10**decimals1, prices[1][1] / 10**decimals1),
+        )
+        print(tx.db, tx.db.block.time, tx.db.block.addr, prices)
+        print(next(tokens))
 db.c.commit()

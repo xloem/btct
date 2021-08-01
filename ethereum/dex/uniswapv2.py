@@ -111,13 +111,18 @@ class dex:
                             address=tokenaddr,
                             abi=abi.uniswapv2_erc20
                         ).functions.symbol())
-                    except Exception as e: # this absorbs keyboard-interrupt, put error type in? .. the error is thrown from an underlying issue in the library, resulting from calling to the wrong spec.  other errors could be thrown, add 'em I guess.
-                        if isinstance(e, OverflowError) or isinstance(e, web3.exceptions.ContractLogicError) or isinstance(e, web3.exceptions.BadFunctionCallOutput):
-                            print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
-                            symbol = tokenaddr
-                        else:
-                            raise e
-                    token = db.token.ensure(tokenaddr, symbol)
+                    except web3.exceptions.SolidityError as e:
+                        print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
+                        symbol = tokenaddr
+                    try:
+                        decimals = wrap_neterrs(w3.eth.contract(
+                            address=tokenaddr,
+                            abi=abi.uniswapv2_erc20
+                        ).functions.decimals())
+                    except web3.exceptions.SolidityError as e:
+                        print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
+                        decimals = 18
+                    token = db.token.ensure(tokenaddr, symbol, decimals)
                 tokens[tokenidx] = token
             pairdb = db.pair(
                 pairaddr,
@@ -368,6 +373,9 @@ class trade:
         # TODO: subtract skim from price
 
         # calculate ((sell1_for_0, buy1_with_0),(sell0_for_1, buy0_with_1))
+        # the first item of the tuple is the spread in terms of 0
+        # the second item of the tuple is the spread in terms of 1
+        # the units of the result are based on the fixed-point representations, so they should be divided or multiplied respectively by 10**(token0.decimals - token1.decimals)
         return (
             (
                 # sale price of token1 in token0: how much token0 we get for a single token1
@@ -377,7 +385,7 @@ class trade:
             ),(
                 # same price of token0 in token1
                 ending_bal[1]/starting_bal[0],
-                starting_bal[0]/ending_bal[1]
+                starting_bal[1]/ending_bal[0]
             )
         )
     def __str__(self):
