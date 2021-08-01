@@ -6,6 +6,8 @@ import abi
 import db
 import dex.uniswapv2
 
+import datetime
+
 # filters can be polled synchronously or asynchronously, see web3py docs
 # filters only work on local nodes
 #    daicontract.events.Transfer.createFilter(fromBlock='latest').get_all_entries()
@@ -30,6 +32,7 @@ for pair in usv2.pairs():
             (prices[0][0] / 10**decimals0, prices[0][1] / 10**decimals0),
             (prices[1][0] / 10**decimals1, prices[1][1] / 10**decimals1),
         )
-        print(tx.db, tx.db.block.time, tx.db.block.addr, prices)
+        time = datetime.datetime.fromtimestamp(tx.db.block.time).isoformat()
+        print(tx.db, time, tx.db.block.addr, prices)
         print(next(tokens))
 db.c.commit()
