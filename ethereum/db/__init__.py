@@ -80,7 +80,7 @@ class Table:
                     if isinstance(val, bytes):
                         val = b2hex(val)
                         kwparams[key] = val
-                elif isinstance(val, bytes) and col.type is int:
+                elif isinstance(val, bytes) and col.type is int: # Big
                     val = pickle.decode_long(val)
                 setattr(self, key, val)
         @property
@@ -91,12 +91,14 @@ class Table:
             return self.id
         def __iter__(self):
             return self._select()
-        def ascending(self, key):
-            return self._orderby(key, 'ASC')
-        def descending(self, key):
-            return self._orderby(key, 'DESC')
-        def _orderby(self, key, direction = 'ASC'):
-            return self._select('ORDER BY `' + key + '` ' + direction)
+        def ascending(self, key, wherestr = '', *wherevals):
+            return self._orderby(key, 'ASC', wherestr, *wherevals)
+        def descending(self, key, wherestr = '', *wherevals):
+            return self._orderby(key, 'DESC', wherestr, *wherevals)
+        def _orderby(self, key, direction = 'ASC', wherestr = '', *wherevals):
+            if wherestr:
+                wherestr = 'AND ' + wherestr
+            return self._select(wherestr + ' ORDER BY `' + key + '` ' + direction, *wherevals)
         def _select(self, wherestr = '', *wherevals):
             return (
                 Table.Row(self.table, *row)
@@ -274,7 +276,7 @@ class Table:
                 val = val.id
             if (col.foreign is not None or col.primary) and not isinstance(val, bytes):
                 val = hex2b(val)
-            elif col.type is int and col.sqltype == 'BLOB':
+            elif col.type is int and col.sqltype == 'BLOB': # Big
                 val = pickle.encode_long(val)
             sqlite_vals.append(val)
         #print(self.name, 'ensure-insert', {self.cols[idx].name:sqlite_vals[idx] for idx in range(self.numcols)})
