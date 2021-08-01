@@ -19,7 +19,7 @@ try:
         raise Exception('local still syncing')
 except Exception as e:
     w3 = w3_cloud
-    print(str(e),'-> using a limited cloud provider instead')
+    print(str(e),'-> using a limited cloud provider instead.  note this is likely broken.')
 
 while True:
     try:
