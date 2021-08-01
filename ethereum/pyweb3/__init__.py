@@ -2,7 +2,9 @@ import web3
 import eth_abi
 import requests
 import asyncio
-from web3 import Web3, _utils as utils
+from decimal import Decimal
+from web3 import Web3, _utils as utils, middleware
+import web3.gas_strategies.time_based
 
 from web3.auto.websocket import w3 as w3_websocket
 from web3.auto import w3 as w3_local
@@ -31,6 +33,32 @@ while True:
     print('not connected yet, waiting...')
     import time
     time.sleep(0.5)
+
+wei2eth = Decimal(10) ** -18
+eth2wei = Decimal(10) ** 18
+gwei2eth = Decimal(10) ** -9
+eth2gwei = Decimal(10) ** 9
+wei2gwei = Decimal(10) ** -(18 - 9)
+gwei2wei = Decimal(10) ** (18 - 9)
+
+# changing the deadline doesn't seem to change the gas price with below code
+# additionally it doesn't seem to speed up on second request
+
+#w3.middleware_onion.add(middleware.time_based_cache_middleware)
+#w3.middleware_onion.add(middleware.latest_block_based_cache_middleware)
+#w3.middleware_onion.add(middleware.simple_cache_middleware)
+#
+#def set_gas_deadline(secs, likelihood = 1.0, sample_last_blocks = 120, bias_towards_recent = True):
+#    strategy = web3.gas_strategies.time_based.construct_time_based_gas_price_strategy(
+#        max_wait_seconds = secs,
+#        sample_size = sample_last_blocks,
+#        probability = int(.5 + likelihood * 100),
+#        weighted = bias_towards_recent
+#    )
+#    w3.eth.set_gas_price_strategy(strategy)
+#
+#def gas_price():
+#    return w3.eth.generate_gas_price()
 
 def blockfrom(fromBlock):
     block = fromBlock #kwparams.get('fromBlock')
