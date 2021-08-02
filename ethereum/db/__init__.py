@@ -107,10 +107,7 @@ class Table:
             if limit is not None:
                 direction += ' LIMIT ' + str(limit)
             result = self._select(wherestr + ' ORDER BY `' + key + '` ' + direction, *wherevals)
-            if limit == 1:
-                return next(result)
-            else:
-                return result
+            return result
         def _select(self, wherestr = '', *wherevals):
             return (
                 Table.Row(self.table, *row)
