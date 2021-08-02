@@ -1,4 +1,4 @@
-from pyweb3 import w3, wrap_neterrs, web3, blockfrom, blockto
+from pyweb3 import w3, wrap_neterrs, web3, blockfrom, blockto, utils
 import eth_hash
 import abi
 import db
@@ -160,6 +160,7 @@ class pair:
             updateLatest = True
         if self.db.latest_synced_trade and fromBlock <= self.db.latest_synced_trade.blocknum:
             midBlock = min(self.db.latest_synced_trade.blocknum, blockto(toBlock))
+            # TODO: fix ordering to include sub-block info
             for t in db.trade(pair=self.db).ascending('blocknum', 'blocknum >= ? and blocknum < ?', fromBlock, midBlock):
                 yield trade(self, t)
             fromBlock = midBlock
@@ -177,6 +178,15 @@ class pair:
                 continue
             #print(fromBlock, '-', midBlock, ':', len(logs))
             for log in logs:
+                try:
+                    rcpt = w3.eth.get_transaction_receipt(log.transactionHash)
+                    gas = rcpt.gasUsed
+                    gasPrice = utils.method_formatters.to_integer_if_hex(rcpt.effectiveGasPrice)
+                except web3.exceptions.TransactionNotFound:
+                    # indexing limited, use limit as value
+                    tx = w3.eth.get_transaction_by_block(log.blockHash, log.transactionIndex)
+                    gas = tx.gas
+                    gasPrice = tx.gasPrice
                 t = db.trade.ensure(
                     id=log.transactionHash,
                     blocknum=log.blockNumber,
@@ -188,7 +198,8 @@ class pair:
                     trader0=db.acct.ensure(log.address),
                     trader1=db.acct.ensure(self.db.addr),
                     const0=log.args.reserve0,
-                    const1=log.args.reserve1
+                    const1=log.args.reserve1,
+                    gas_fee=gas * gasPrice,
                 )
                 if updateLatest:
                     if not self.db.latest_synced_trade or self.db.latest_synced_trade.blocknum < t.blocknum:
@@ -349,6 +360,10 @@ class trade:
         )
 
         # TODO: gas fees.
+        #  note: gas price is in wei/gas in tx objects
+        #  receipts have actual gas used, txs have a gas limit under 'gas'
+        #   blocks have total gas used, could fudge by weighting, not too helpful
+        #  a router or pair can convert wei to token0 or token1
         # the best way to figure gas fees is to actually run a test transaction and discern
         # all the expenses.
             # likely:
