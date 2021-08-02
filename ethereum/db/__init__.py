@@ -91,13 +91,15 @@ class Table:
             return self.id
         def __iter__(self):
             return self._select()
-        def ascending(self, key, wherestr = '', *wherevals):
-            return self._orderby(key, 'ASC', wherestr, *wherevals)
-        def descending(self, key, wherestr = '', *wherevals):
-            return self._orderby(key, 'DESC', wherestr, *wherevals)
-        def _orderby(self, key, direction = 'ASC', wherestr = '', *wherevals):
+        def ascending(self, key, wherestr = '', *wherevals, limit = None):
+            return self._orderby(key, 'ASC', wherestr, *wherevals, limit = limit)
+        def descending(self, key, wherestr = '', *wherevals, limit = None):
+            return self._orderby(key, 'DESC', wherestr, *wherevals, limit = limit)
+        def _orderby(self, key, direction = 'ASC', wherestr = '', *wherevals, limit = None):
             if wherestr:
                 wherestr = 'AND ' + wherestr
+            if limit is not None:
+                direction += ' LIMIT ' + str(limit)
             return self._select(wherestr + ' ORDER BY `' + key + '` ' + direction, *wherevals)
         def _select(self, wherestr = '', *wherevals):
             return (
