@@ -106,7 +106,11 @@ class Table:
                 wherestr = 'AND ' + wherestr
             if limit is not None:
                 direction += ' LIMIT ' + str(limit)
-            return self._select(wherestr + ' ORDER BY `' + key + '` ' + direction, *wherevals)
+            result = self._select(wherestr + ' ORDER BY `' + key + '` ' + direction, *wherevals)
+            if limit == 1:
+                return next(result)
+            else:
+                return result
         def _select(self, wherestr = '', *wherevals):
             return (
                 Table.Row(self.table, *row)
