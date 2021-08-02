@@ -22,6 +22,18 @@ def _ensureblock(numorid):
         dbblock = db.block.ensure(ethblock.hash, ethblock.number, ethblock.timestamp)
     return dbblock
 
+def _gaswei(txid, block, txidx):
+    try:
+        rcpt = w3.eth.get_transaction_receipt(txid)
+        gas = rcpt.gasUsed
+        gasPrice = utils.method_formatters.to_integer_if_hex(rcpt.effectiveGasPrice)
+    except web3.exceptions.TransactionNotFound:
+        # indexing limited, use limit as value
+        tx = w3.eth.get_transaction_by_block(block, txidx)
+        gas = tx.gas
+        gasPrice = tx.gasPrice
+    return gas * gasPrice
+
 class dex:
     def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2', minblock=10000835):
         dbblock = _ensureblock(minblock)
@@ -45,6 +57,7 @@ class dex:
 
     def pair(self, token0, token1):
         tokens=[token0,token1]
+        swapped = False
         for idx in range(2):
             tokens[idx] = db.token(tokens[idx])
             try:
@@ -54,6 +67,7 @@ class dex:
                 print('Warning: ' + str(e) + '; selecting first of ' + tokens[idx].addr)
         if tokens[0].addr > tokens[1].addr:
             tokens[0], tokens[1] = tokens[1], tokens[0]
+            swapped = True
         pairdb = db.pair(token0 = tokens[0], token1 = tokens[1], dex = self.db)
         if not pairdb:
             Hash = eth_hash.backends.auto.AutoBackend()
@@ -72,8 +86,9 @@ class dex:
                 tokens[1].addr,
                 self.db.addr
             )
-        return pair(self, pairdb)
-
+        p = pair(self, pairdb)
+        p.swapped = swapped
+        return p
 
     ## pairs iterator for now, better to look up by attributes like tokens or volume or such i guess
     ## this could also be getitem[]
@@ -134,6 +149,13 @@ class dex:
         elif pairdb.index != pairidx:
             pairdb['index'] = pairidx
         return pair(self, pairdb)
+    def prices_of_in(self, token0, token1, investment_tup, block):
+        pair = self.pair(token0, token1)
+        prices = pair.prices(investment_tup, block)
+        if pair.swapped:
+            return (prices[1], prices[0])
+        else:
+            return prices
 
 class pair:
     def __init__(self, dex, dbpair):
@@ -178,15 +200,6 @@ class pair:
                 continue
             #print(fromBlock, '-', midBlock, ':', len(logs))
             for log in logs:
-                try:
-                    rcpt = w3.eth.get_transaction_receipt(log.transactionHash)
-                    gas = rcpt.gasUsed
-                    gasPrice = utils.method_formatters.to_integer_if_hex(rcpt.effectiveGasPrice)
-                except web3.exceptions.TransactionNotFound:
-                    # indexing limited, use limit as value
-                    tx = w3.eth.get_transaction_by_block(log.blockHash, log.transactionIndex)
-                    gas = tx.gas
-                    gasPrice = tx.gasPrice
                 t = db.trade.ensure(
                     id=log.transactionHash,
                     blocknum=log.blockNumber,
@@ -199,7 +212,7 @@ class pair:
                     trader1=db.acct.ensure(self.db.addr),
                     const0=log.args.reserve0,
                     const1=log.args.reserve1,
-                    gas_fee=gas * gasPrice,
+                    gas_fee=_gaswei(log.transactionHash, log.blockHash, log.transactionIndex),
                 )
                 if updateLatest:
                     if not self.db.latest_synced_trade or self.db.latest_synced_trade.blocknum < t.blocknum:
@@ -207,11 +220,13 @@ class pair:
                 yield trade(self, t)
             db.c.commit()
             fromBlock += chunkSize
-    def prices(self, investment_tup, block):
-        if not self.db.latest_synced_trade or block.num > self.db.latest_synced_trade:
+    def trade4block(self, block):
+        if not self.db.latest_synced_trade or block.num > self.db.latest_synced_trade.block.num:
             raise Exception('unimplemented')
         prev_trade = db.trade(pair=self.db).descending('blocknum', 'blocknum < ?', block.num, limit=1)
-        return prev_trade.prices(investment_tup)
+        return trade(self, next(prev_trade))
+    def prices(self, investment_tup, block):
+        return self.trade4block(block).prices(investment_tup)
 
     def reserves(self):
         # call(), inside wrap_neterrs, can take transaction params and a block identifier or number
@@ -284,6 +299,8 @@ class pair:
 
     @staticmethod
     def calc_in(reserve_tup, out_1):
+        if reserve_tup[1] <= out_1:
+            raise ValueError('insufficient reserves')
         # from uniswap library
         numerator = reserve_tup[0] * out_1 * 1000
         denominator = (reserve_tup[1] - out_1) * 997
@@ -330,6 +347,9 @@ class trade:
     def __init__(self, pair, db):
         self.pair = pair
         self.db = db
+        WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        self.token0gasfee = self.db.gas_fee if self.pair.db.token0.addr == WETH else None
+        self.token1gasfee = self.db.gas_fee if self.pair.db.token1.addr == WETH else None
         _ensureblock(self.db.block.addr)
     def reserves(self):
         return (self.db.const0, self.db.const1)
@@ -360,23 +380,58 @@ class trade:
                 self.token1_possible(starting_bal[0])
         )
         # update starting_bal to reduce rounding error
-        starting_bal = (
-                self.token0_needed(ending_bal[1]),
-                self.token1_needed(ending_bal[0])
+        try:
+            starting_bal = (
+                    self.token0_needed(ending_bal[1]),
+                    self.token1_needed(ending_bal[0])
+            )
+        except ValueError:
+            pass # insufficient reserves
+
+        if not self.db.gas_fee:
+            self.db.gas_fee = _gaswei(self.db.hash, self.db.block.hash, self.db.blockidx)
+
+        # gas fee
+        WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        if self.token0gasfee is None:
+            try:
+                weth0 = self.pair.dex.pair(WETH, self.db.token0.addr).trade4block(self.db.block.hash)
+                self.token0gasfee = weth0.token1_needed(self.db.gas_fee) if not weth0.pair.swapped else weth0.token0_needed(self.db.gas_fee)
+            except:
+                pass
+        if self.token1gasfee is None:
+            try:
+                weth1 = self.pair.dex.pair(WETH, self.db.token1.addr).trade4block(self.db.block.hash)
+                self.token1gasfee = weth1.token1_needed(self.db.gas_fee) if not weth1.pair.swapped else weth1.token0_needed(self.db.gas_fee)
+            except:
+                self.token1gasfee = self.token1_needed(self.token0gasfee)
+        if self.token0gasfee is None:
+            self.token0gasfee = self.token0_needed(self.token1gasfee)
+
+        print('gas limit:',
+                self.token0gasfee / 10**self.pair.db.token0.decimals, self.pair.db.token0.symbol,
+                self.token1gasfee / 10**self.pair.db.token1.decimals, self.pair.db.token1.symbol)
+
+        ending_bal = (
+                ending_bal[0] - self.token0gasfee,
+                ending_bal[1] - self.token1gasfee
         )
+
+            ######## note: gas price would ideally be associated with block, not transaction
+            ######## then probably gasused would maybe be associated with pair, dunno, could see what it changes across.  gas_fee is fine for now.
+            ## considering goal: see what changes gasused
 
         # TODO: gas fees.
         #  note: gas price is in wei/gas in tx objects
         #  receipts have actual gas used, txs have a gas limit under 'gas'
         #   blocks have total gas used, could fudge by weighting, not too helpful
-        #  a router or pair can convert wei to token0 or token1
+        ###### but this might give average for block, or minimum !
         # the best way to figure gas fees is to actually run a test transaction and discern
         # all the expenses.
             # likely:
             # - come up with an amount to send/receive
             # we'll try buying about $1 from USDC/WETH with ethereum.
             ### $1 is 1000000 USDC
-            ### there are 10**18 wei in an ether
             # we could send around 470905516896242 wei to the pair, and calculate however many usdc we should get back, or just plan on 1000000
             # - craft a transaction that sends balance to the pair, and then calls the swap function
 

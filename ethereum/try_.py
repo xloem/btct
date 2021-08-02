@@ -24,8 +24,10 @@ for pair in usv2.pairs():
     #print(pair.db.index, pair.db)
     latest_synced_trade = pair.db.latest_synced_trade
     fromBlock = latest_synced_trade.blocknum if latest_synced_trade else 'earliest'
+    investment_tup = (10**pair.db.token0.decimals, 10**pair.db.token1.decimals)
     for tx in pair.logs(fromBlock = fromBlock):
-        prices = tx.prices((1000000, 1000000))
+        reserves = tx.reserves()
+        prices = tx.prices(investment_tup)
         decimals0 = pair.db.token0.decimals - pair.db.token1.decimals
         decimals1 = -decimals0
         prices = (
