@@ -42,6 +42,9 @@ class Table:
             if 'addr' in kwparams and 'id' not in kwparams:
                 kwparams['id'] = kwparams['addr']
                 del kwparams['addr']
+            if 'hash' in kwparams and 'id' not in kwparams:
+                kwparams['id'] = kwparams['hash']
+                del kwparams['hash']
             #print(self.table.name, kwparams)
             if 'id' in kwparams:
                 try:
@@ -70,6 +73,8 @@ class Table:
 
             self.kwparams = kwparams
             #print(table.name, 'ROW', {key:str(val) for key,val in kwparams.items()})
+            self._colstoattrs(kwparams)
+        def _colstoattrs(self, kwparams):
             for key, val in kwparams.items():
                 col = self.table.colsdict[key]
                 if col.foreign is not None:
@@ -82,7 +87,8 @@ class Table:
                         kwparams[key] = val
                 elif isinstance(val, bytes) and col.type is int: # Big
                     val = pickle.decode_long(val)
-                setattr(self, key, val)
+                    kwparams[key] = val
+                super().__setattr__(key, val)
         @property
         def addr(self):
             return self.id
@@ -150,12 +156,11 @@ class Table:
                 vals = row.kwparams
             if vals is None:
                 raise LookupError(self.table.name + ' not found: ' + str(self.kwparams))
-            for col, val in vals.items():
-                setattr(self, col, val)
+            self._colstoattrs(vals)
             self.kwparams = vals
             #print(self.table.name, 'EXPAND', self.id, result)
             return vals[attr]
-        #def __setattr__(self, atrr, value):
+        #def __setattr__(self, attr, value):
         #    self._update(**{attr:value})
         def __getitem__(self, item):
             return getattr(self, item)
