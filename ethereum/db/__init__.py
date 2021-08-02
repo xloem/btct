@@ -262,7 +262,18 @@ class Table:
             ', '.join(('`' + col.name + '` ' + col.sqltype for col in self.cols)) +
             ', PRIMARY KEY (`' + '`, `'.join(self.primarykeys) + '`)' +
             ')')
+        sql_cols = [*c.execute('PRAGMA table_info(' + self.name + ')')]
+        for idx, col in enumerate(self.cols):
+            if idx >= len(sql_cols):
+                c.execute('ALTER TABLE ' + self.name + ' ADD COLUMN `' + col.name + '` ' + col.sqltype)
+                continue
+            cid, sqlname, sqltype, notnull, dflt_value, pk = sql_cols[idx]
+            if notnull:
+                sqltype += ' NOT NULL'
+            if sqlname != col.name or sqltype != col.sqltype:
+                raise Exception(self.name + ' col ' + col.name + ' ' + col.sqltype + ' mismatches sql of ' + sqlname + ' ' + sqltype)
         Table.tables[self.name] = self
+
     def ensure(self, *vals, **kwvals):
         obj = Table.Row(self, *vals,**kwvals)
         if obj:
@@ -347,5 +358,6 @@ trade = Table('trade',
         token0_to_trader1 = Optional[int],
         token1_to_trader1 = Optional[int],
         const0 = Optional[Big[int]],
-        const1 = Optional[Big[int]])
+        const1 = Optional[Big[int]],
+        gas_fee = Optional[int])
 
