@@ -207,6 +207,12 @@ class pair:
                 yield trade(self, t)
             db.c.commit()
             fromBlock += chunkSize
+    def prices(self, investment_tup, block):
+        if not self.db.latest_synced_trade or block.num > self.db.latest_synced_trade:
+            raise Exception('unimplemented')
+        prev_trade = db.trade(pair=self.db).descending('blocknum', 'blocknum < ?', block.num, limit=1)
+        return prev_trade.prices(investment_tup)
+
     def reserves(self):
         # call(), inside wrap_neterrs, can take transaction params and a block identifier or number
         # note that these functions also have .estimateGas as well as .call
