@@ -16,3 +16,10 @@ uniswapv2_router02 = _loadjson('uniswapv2_router02')
 uniswapv2_router02_addr = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
 uniswapv2_erc20 = _loadjson('uniswapv2_erc20')
 uniswapv3_factory = _loadjson('uniswapv3_factory')
+
+def from_etherscan(addr, apitoken):
+    import json
+    import requests
+    abi_endpoint = 'https://api.etherscan.io/api?module=contract&action=getabi&address=' + addr + '&apikey=' + apitoken
+    result = json.loads(requests.get(abi_endpoint).text)
+    return result['result']
