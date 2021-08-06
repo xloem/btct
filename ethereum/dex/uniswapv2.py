@@ -151,6 +151,16 @@ class dex:
         elif pairdb.index != pairidx:
             pairdb['index'] = pairidx
         return pair(self, pairdb)
+
+    def logs(self, fromBlock=None, toBlock=None, **kwparams):
+        return pair._logs(
+                fromBlock=fromBlock,
+                toBlock=toBlock,
+                firstDexBlock=self.db.start,
+                # todo: last cached tx, and return only for this dex
+                **kwparams
+        )
+
     def prices_of_in(self, token0, token1, investment_tup, block):
         pair = self.pair(token0, token1)
         prices = pair.prices(investment_tup, block)
@@ -159,42 +169,70 @@ class dex:
         else:
             return prices
 
+# things could be organised better
+# by letting the constructors handle populating the database
+
 class pair:
     Sync_abi = next(abi for abi in abi.uniswapv2_pair if abi['name'] == 'Sync')
     Sync_topic = utils.filters.construct_event_topic_set(Sync_abi, w3.codec)[0]
     # can get all Sync logs with:
     ## w3.eth.get_logs({'topics':[pair.Sync_topic],'fromBlock':None,'toBlock':None})
     # and parse these logs with ...
-    ## (utils.events.get_event_data(w3.codec, Sync_abi, log) for log in logs)
-    def __init__(self, dex, dbpair):
-        self.dex = dex
+    ## (utils.events.get_event_data(w3.codec, pair.Sync_abi, log) for log in logs)
+    def __init__(self, dexobj, dbpair):
         self.db = dbpair
         self.ct = w3.eth.contract(
             address = self.db.addr,
             abi = abi.uniswapv2_pair
         )
-    # note that getLogs uses event filter params
-    # under the hood.  web3/contract.py:1341
-    def logs(self, fromBlock=None, toBlock=None, **kwparams):
+        if dexobj is None:
+            dexobj = dex(wrap_neterrs(self.ct.functions.factory), None, None)
+        self.dex = dexobj
+    @staticmethod
+    def _logs(fromBlock=None, toBlock=None, pairobj=None, firstDexBlock=None, lastCachedTx=None, onCacheUpdate=lambda tx: None, **kwparams):
         # the best timestamp granularity appears to be the timestamp of the block, which is well known
         # we could display them evenly distributed over the block, if desired
 
         ## normalising parameters
         if toBlock is None:
             toBlock = 'latest'
+        pairobjs = {}
+        if pairobj is not None:
+            pairaddr = pairobj.db.addr
+            pairobjs[pairaddr] = pairobj
+        else:
+            pairaddr = None
         # next: back by db. might mean calculating buy/sell prices
         # it looks like logIndex might be exchangeable with something similar to txOut
         fromBlock = blockfrom(fromBlock)
         updateLatest = False
-        if fromBlock <= self.dex.db.start.num and not self.db.latest_synced_trade:
-            fromBlock = self.dex.db.start.num
-            print('Scanning blockchain from block', fromBlock, 'for', self.db, '...')
+        if fromBlock <= firstDexBlock.num and not lastCachedTx:
+            fromBlock = firstDexBlock.num
+            if pairobj is None:
+                print('Scanning blockchain from block', fromBlock, '...')
+            else:
+                print('Scanning blockchain from block', fromBlock, 'for', pairobj.db.addr, '...')
             updateLatest = True
-        if self.db.latest_synced_trade and fromBlock <= self.db.latest_synced_trade.blocknum:
-            midBlock = min(self.db.latest_synced_trade.blocknum, blockto(toBlock))
+        if lastCachedTx and fromBlock <= lastCachedTx.blocknum:
+            midBlock = min(lastCachedTx.blocknum, blockto(toBlock))
             # TODO: fix ordering to include sub-block info
-            for t in db.trade(pair=self.db).ascending('blocknum', 'blocknum >= ? and blocknum < ?', fromBlock, midBlock):
-                yield trade(self, t)
+            if pairobj is None:
+                trade_query = db.trade()
+            else:
+                trade_query = db.trade(pair=pairobj.db)
+            po = None
+            for t in trade_query.ascending('blocknum', 'blocknum >= ? and blocknum < ?', fromBlock, midBlock):
+                p = t.pair
+                if po is None or po.db.addr != p.addr:
+                    po = pairobjs.get(p.addr)
+                    if po is None:
+                        do = dexobjs.get(d.addr)
+                        po = pair(do, p)
+                        if do is None:
+                            do = po.dex
+                            dexobjs[do.db.addr] = do
+                        pairobjs[p.addr] = po
+                yield trade(po, t)
             fromBlock = midBlock
             updateLatest = True
         chunkSize = 256#1024*128#*1024
@@ -203,33 +241,56 @@ class pair:
             if blockto(midBlock) > fromBlock + chunkSize:
                 midBlock = fromBlock + chunkSize
             try:
-                logs = wrap_neterrs(self.ct.events.Sync(), 'getLogs', fromBlock=fromBlock,toBlock=midBlock,**kwparams)
+                logs = wrap_neterrs(w3.eth, 'get_logs', dict(
+                    topics = [pair.Sync_topic],
+                    address = pairaddr,
+                    fromBlock = fromBlock,
+                    toBlock = midBlock,
+                    **kwparams
+                ))
             except asyncio.exceptions.TimeoutError as e:
                 chunkSize //= 2
                 print(e, 'dropping chunkSize to', chunkSize, 'at block', fromBlock)
                 continue
             #print(fromBlock, '-', midBlock, ':', len(logs))
+            po = None
             for log in logs:
+                log = utils.events.get_event_data(w3.codec, pair.Sync_abi, log)
+                if po is None or po.db.addr != log.address:
+                    po = pairobjs.get(log.address)
+                    if po is None:
+                        po = pair(None, db.pair(log.address))
+                        pairobjs[po.db.addr] = po
                 t = db.trade.ensure(
                     id=log.transactionHash,
                     blocknum=log.blockNumber,
                     blockidx=log.transactionIndex,
                     # it could be nice to convert txidx to be local to the transaction
                     txidx=log.logIndex,
-                    pair=self.db,
+                    pair=pairobj.db,
                     block=db.block.ensure(log.blockHash, log.blockNumber),
                     trader0=db.acct.ensure(log.address),
-                    trader1=db.acct.ensure(self.db.addr),
+                    trader1=db.acct.ensure(pairaddr),
                     const0=log.args.reserve0,
                     const1=log.args.reserve1,
                     gas_fee=_gaswei(log.transactionHash, log.blockHash, log.transactionIndex),
                 )
                 if updateLatest:
-                    if not self.db.latest_synced_trade or self.db.latest_synced_trade.blocknum < t.blocknum:
-                        self.db['latest_synced_trade'] = t
-                yield trade(self, t)
+                    if not lastCachedTx or lastCachedTx.blocknum < t.blocknum:
+                        lastCachedTx = t
+                        onCacheUpdate(t)
+                yield trade(pairobj, t)
             db.c.commit()
             fromBlock += chunkSize
+    def logs(self, fromBlock=None, toBlock=None, **kwparams):
+        return pair._logs(
+                fromBlock=fromBlock,
+                toBlock=toBlock,
+                pairobj=self,
+                firstDexBlock=self.dex.db.start,
+                lastCachedTx=self.db.latest_synced_trade,
+                onCacheUpdate=lambda tx: self.db.__setitem__('latest_synced_trade', tx),
+                **kwparams)
     def trade4block(self, block):
         if not self.db.latest_synced_trade or block.num > self.db.latest_synced_trade.block.num:
             raise Exception('unimplemented')
