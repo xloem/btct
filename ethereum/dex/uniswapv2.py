@@ -27,6 +27,8 @@ def _gaswei(txid, block, txidx):
         rcpt = w3.eth.get_transaction_receipt(txid)
         gas = rcpt.gasUsed
         gasPrice = utils.method_formatters.to_integer_if_hex(rcpt.effectiveGasPrice)
+    except asyncio.exceptions.TimeoutError:
+        return _gaswei(txid, block, txidx)
     except web3.exceptions.TransactionNotFound:
         # indexing limited, use limit as value
         tx = w3.eth.get_transaction_by_block(block, txidx)
@@ -158,6 +160,12 @@ class dex:
             return prices
 
 class pair:
+    Sync_abi = next(abi for abi in abi.uniswapv2_pair if abi['name'] == 'Sync')
+    Sync_topic = utils.filters.construct_event_topic_set(Sync_abi, w3.codec)[0]
+    # can get all Sync logs with:
+    ## w3.eth.get_logs({'topics':[pair.Sync_topic],'fromBlock':None,'toBlock':None})
+    # and parse these logs with ...
+    ## (utils.events.get_event_data(w3.codec, Sync_abi, log) for log in logs)
     def __init__(self, dex, dbpair):
         self.dex = dex
         self.db = dbpair
@@ -170,6 +178,8 @@ class pair:
     def logs(self, fromBlock=None, toBlock=None, **kwparams):
         # the best timestamp granularity appears to be the timestamp of the block, which is well known
         # we could display them evenly distributed over the block, if desired
+
+        ## normalising parameters
         if toBlock is None:
             toBlock = 'latest'
         # next: back by db. might mean calculating buy/sell prices
@@ -482,7 +492,14 @@ class router:
             address = WETH,
             abi = abi.weth
         )
-    # i'm making acct with eth_account.Account.from_key()
+    # swapExactTokensForTokens used 120111 gas on a single pair in 2021-08
+    ## see 0xd10128eeda98d108e1f5bf7d1877343256e589503b6ad507b782303e98dbe833
+    ### under the triple dots at etherscan, debug trace can be seen.  it looks like
+    ### each opcode generates a small amount of gas.  this likely changes historically.
+    # another pair used 124906 gas, 2021-08
+    ## 0x97d0fd631099270dc1f60f8b752f98d60b5228d21ca37fa803f95140ca9f4c32
+
+    # i'm making acct with eth_account.Account.from_key(), but todo: i think i like it nicer to pass raw key bytes in, until i udnerstand a normal account representation in pyweb3
     def eth2weth(self, acct, eth):
         return self.wei2weth(acct, math.round(amnt * 10**18))
     def wei2weth(self, acct, wei):
