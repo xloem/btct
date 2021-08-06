@@ -60,6 +60,9 @@ gwei2wei = Decimal(10) ** (18 - 9)
 #def gas_price():
 #    return w3.eth.generate_gas_price()
 
+#def geth_trace(txid):
+#    return w3.manager.request_blocking('debug_traceTransaction', [txid])
+
 def blockfrom(fromBlock):
     block = fromBlock #kwparams.get('fromBlock')
     if block in (None, 'earliest'):
@@ -74,13 +77,13 @@ def blockto(toBlock):
         block = w3.eth.block_number
     return block
 
-def wrap_neterrs(func, method = 'call', **kwparams):
+def wrap_neterrs(func, method = 'call', *params, **kwparams):
     count = 0
     if kwparams.get('fromBlock',-1) is None and hasattr(func.web3, 'block_limit'):
         kwparams['fromBlock'] = func.web3.eth.block_number + func.web3.block_limit
     while True:
         try:
-            return getattr(func, method)(**kwparams)
+            return getattr(func, method)(*params, **kwparams)
         except web3.exceptions.BadFunctionCallOutput as e:
             if type(e.__cause__) is eth_abi.exceptions.InsufficientDataBytes:
                 if ' 0 ' in e.__cause__.args[0] and count < 512:
