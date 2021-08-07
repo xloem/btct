@@ -183,7 +183,7 @@ class pair:
                     self.dex.db.addr
                 )
     @staticmethod
-    def _logs(fromBlock=None, toBlock=None, pairobj=None, dexobj=None, lastCachedTx=None, onCacheUpdate=lambda tx: None, **kwparams):
+    def _logs(fromBlock=None, toBlock=None, pairobj=None, dexobj=None, onCacheUpdate=lambda tx: None, **kwparams):
         # the best timestamp granularity appears to be the timestamp of the block, which is well known
         # we could display them evenly distributed over the block, if desired
 
@@ -194,8 +194,34 @@ class pair:
         if pairobj is not None:
             pairaddr = pairobj.db.addr
             pairobjs[pairaddr] = pairobj
+            lastCachedTx = pairobj.db.latest_synced_trade
+            pairs_query = db.pair(pairaddr)
         else:
             pairaddr = None
+            if dexobj is not None:
+                pairs_query = db.pair(dex=dexobj.db)
+            else:
+                pairs_query = db.pair()
+            lastCachedTx = None
+            if not pairs_query(latest_synced_trade = None):
+                cachedpair = next(pairs_query.ascending('latest_synced_trade', subkey='blocknum', limit=1))
+                lastCachedTx = cachedpair.latest_synced_trade
+            #print('enumerating pairs')
+            #for p in pairs_query:
+            #    if p.latest_synced_trade:
+            #        if lastCachedTx is None:
+            #            lastCachedTx = p.latest_synced_trade
+            #        else:
+            #            if p.latest_synced_trade.block.num < lastCachedTx.block.num:
+            #                lastCachedTx = p.latest_synced_trade
+            #        #print(p)
+            #    else:
+            #        #print(p, 'has no latest_synced_trade')
+            #        lastCachedTx = None
+            #        break
+        print('done enumerating pairs')
+        if lastCachedTx is not None:
+            print('lastCachedTx from block', lastCachedTx.block.num)
         # next: back by db. might mean calculating buy/sell prices
         # it looks like logIndex might be exchangeable with something similar to txOut
         fromBlock = blockfrom(fromBlock)
@@ -210,14 +236,14 @@ class pair:
             else:
                 print('Scanning blockchain from block', fromBlock, 'for', pairobj.db.addr, '...')
             updateLatest = True
-        if lastCachedTx and fromBlock < lastCachedTx.blocknum:
+        po = None
+        if lastCachedTx and fromBlock <= lastCachedTx.blocknum:
             midBlock = min(lastCachedTx.blocknum, blockto(toBlock))
             # TODO: fix ordering to include sub-block info
             if pairobj is None:
                 trade_query = db.trade()
             else:
                 trade_query = db.trade(pair=pairobj.db)
-            po = None
             for t in trade_query.ascending('blocknum', 'blocknum >= ? and blocknum < ?', fromBlock, midBlock):
                 p = t.pair
                 if po is None or po.db.addr != p.addr:
@@ -226,7 +252,7 @@ class pair:
                         if dexobj is not None:
                             do = dexobj
                         else:
-                            do = dex(t.pair.dex, None, None)
+                            do = dex(t.pair.dex.addr, None, t.block.addr)
                         po = pair(do, p, t.block.num)
                         pairobjs[p.addr] = po
                 if dexobj is None or po.dex.db.addr == dexobj.db.addr:
@@ -253,7 +279,7 @@ class pair:
                 print(e, 'dropping chunkSize to', chunkSize, 'at block', fromBlock)
                 continue
             #print(fromBlock, '-', midBlock, ':', len(logs))
-            po = None
+            t = None
             for log in logs:
                 log = utils.events.get_event_data(w3.codec, pair.Sync_abi, log)
                 if po is None or po.db.addr != log.address:
@@ -277,12 +303,13 @@ class pair:
                     const1=log.args.reserve1,
                     gas_fee=_gaswei(log.transactionHash, log.blockHash, log.transactionIndex),
                 )
+                yield trade(po, t)
+            if t is not None:
                 if updateLatest:
                     if not lastCachedTx or lastCachedTx.blocknum < t.blocknum:
+                        print('storing tx cache for block', t.block.num)
+                        pairs_query(latest_synced_trade=lastCachedTx)['latest_synced_trade'] = t
                         lastCachedTx = t
-                        onCacheUpdate(t)
-                yield trade(po, t)
-            if po is not None:
                 db.c.commit()
             #else:
             #    print('no matching trades between blocks', fromBlock, '-', midBlock)
@@ -293,8 +320,6 @@ class pair:
                 toBlock=toBlock,
                 pairobj=self,
                 dexobj=self.dex,
-                lastCachedTx=self.db.latest_synced_trade,
-                onCacheUpdate=lambda tx: self.db.__setitem__('latest_synced_trade', tx),
                 **kwparams)
     def trade4block(self, block):
         if not self.db.latest_synced_trade or block.num > self.db.latest_synced_trade.block.num:

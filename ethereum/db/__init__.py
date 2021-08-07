@@ -14,6 +14,17 @@ from web3 import _utils as utils, Web3
 from hexbytes import HexBytes
 
 c = sqlite3.connect('dex.sqlite')
+#c_orig = c
+#old_ex = c_orig.execute
+#c = lambda: None
+#c.commit = c_orig.commit
+#c.execute = old_ex
+#def ex_wrapper(*params, **kwparams):
+#    print('SQL', *params, kwparams)
+#    result = old_ex(*params, **kwparams)
+#    print(' ->', result)
+#    return result
+#c.execute = ex_wrapper
 
 def hex2b(hex):
     return HexBytes(hex)
@@ -74,6 +85,13 @@ class Table:
             self.kwparams = kwparams
             #print(table.name, 'ROW', {key:str(val) for key,val in kwparams.items()})
             self._colstoattrs(kwparams)
+        def __call__(self, *params, **kwparams):
+            for col, val in zip(self.table.cols, params):
+                kwparams[col.name] = val
+            for col, val in self.kwparams.items():
+                if col not in kwparams:
+                    kwparams[col] = val
+            return self.table(**kwparams)
         def _colstoattrs(self, kwparams):
             for key, val in kwparams.items():
                 col = self.table.colsdict[key]
@@ -97,29 +115,36 @@ class Table:
             return self.id
         def __iter__(self):
             return self._select()
-        def ascending(self, key, wherestr = '', *wherevals, limit = None):
-            return self._orderby(key, 'ASC', wherestr, *wherevals, limit = limit)
-        def descending(self, key, wherestr = '', *wherevals, limit = None):
-            return self._orderby(key, 'DESC', wherestr, *wherevals, limit = limit)
-        def _orderby(self, key, direction = 'ASC', wherestr = '', *wherevals, limit = None):
-            if wherestr:
-                wherestr = 'AND ' + wherestr
+        def ascending(self, key, wherestr = '', *wherevals, limit = None, subkey = None):
+            return self._orderby(key, 'ASC', wherestr, *wherevals, limit = limit, subkey = subkey)
+        def descending(self, key, wherestr = '', *wherevals, limit = None, subkey = None):
+            return self._orderby(key, 'DESC', wherestr, *wherevals, limit = limit, subkey = subkey)
+        def _orderby(self, key, direction = 'ASC', wherestr = '', *wherevals, limit = None, subkey = None):
             if limit is not None:
                 direction += ' LIMIT ' + str(limit)
-            result = self._select(wherestr + ' ORDER BY `' + key + '` ' + direction, *wherevals)
+            if subkey is None:
+                key = '`' + key + '`'
+            else:
+                subkeytable = self.table.colsdict[key].foreign
+                key = '(SELECT `' + subkey + '` FROM ' + subkeytable + ' WHERE ' + subkeytable + '.id = `' + key + '`)'
+            result = self._select(wherestr, 'ORDER BY ' + key + ' ' + direction, *wherevals)
             return result
-        def _select(self, wherestr = '', *wherevals):
+        def _select(self, wherestr = '', morestr = '', *wherevals):
             return (
                 Table.Row(self.table, *row)
-                for row in self._selectraw(wherestr, *wherevals)
+                for row in self._selectraw(wherestr, morestr, *wherevals)
             )
-        def _where(self, wherestr = '', *wherevals):
+        def _where(self, wherestr = '', morestr = '', *wherevals):
             if 'id' in self.kwparams:
-                wherestr = 'WHERE id == ? ' + wherestr
+                if wherestr:
+                    wherestr = ' AND ' + wherestr
+                wherestr = 'id == ?' + wherestr
                 wherevals = (hex2b(self.id), *wherevals)
             elif len(self.kwparams):
+                if wherestr:
+                    wherestr = ' AND ' + wherestr
                 wherestr = (
-                    'WHERE `' +
+                    '`' +
                     'AND `'.join(
                         key + '` == ? '
                         for key in self.kwparams.keys()
@@ -129,9 +154,13 @@ class Table:
                     *(o2sql(getattr(self, key)) for key in self.kwparams.keys()),
                     *wherevals
                 )
+            if wherestr:
+                wherestr = ' WHERE ' + wherestr
+            if morestr:
+                wherestr = wherestr + ' ' + morestr
             return wherestr, wherevals
-        def _selectraw(self, wherestr = '', *wherevals):
-            wherestr, wherevals = self._where(wherestr, *wherevals)
+        def _selectraw(self, wherestr = '', morestr = '', *wherevals):
+            wherestr, wherevals = self._where(wherestr, morestr, *wherevals)
             query = 'SELECT * FROM ' + self.table.name + ' ' + wherestr
             #print(query, wherevals)
             result = c.execute(query, wherevals)
@@ -139,8 +168,19 @@ class Table:
             return result
         def _update(self, **kwparams):
             wherestr, wherevals = self._where()
+            sqlite_vals = []
+            for key, val in kwparams.items():
+                col = self.table.colsdict[key]
+                if type(val) is Table.Row:
+                    val = val.id
+                if (col.foreign is not None or col.primary) and not isinstance(val, bytes):
+                    val = hex2b(val)
+                elif col.type is int and col.sqltype == 'BLOB': # Big
+                    val = pickle.encode_long(val)
+                sqlite_vals.append(val)
             query = 'UPDATE ' + self.table.name + ' SET `' + ', `'.join(key + '` = ?' for key in kwparams.keys()) + ' ' + wherestr
-            c.execute(query, (*kwparams.values(), *wherevals))
+            #print(query, *sqlite_vals, *wherevals)
+            result = c.execute(query, (*sqlite_vals, *wherevals))
         def __conform__(self, protocol):
             if protocol is sqlite3.PrepareProtocol:
                 return self.id
@@ -360,11 +400,11 @@ class Big(typing.Generic[typing.T]):
 class Index(typing.Generic[typing.T]):
     pass
 
-block = Table('block', num=int, time=int)
+block = Table('block', num=Index[int], time=Index[int])
 acct = Table('acct')
 token = Table('token', symbol=str, decimals=int)
 dex = Table('dex', name=str, start=Optional['block'])
-pair = Table('pair', token0='token', token1='token', dex='dex', index=Optional[int], latest_synced_trade=Optional['trade'])
+pair = Table('pair', token0=Index['token'], token1=Index['token'], dex=Index['dex'], index=Optional[Index[int]], latest_synced_trade=Optional['trade'])
 
 trade = Table('trade',
         # for ordering

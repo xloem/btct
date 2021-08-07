@@ -17,6 +17,7 @@ import datetime
 
 # getLogs works on remote and local nodes, but appears to need a contract address
 
+print('loaded')
 usv2 = dex.uniswapv2.dex()
 
 tokens = usv2.tokens()
