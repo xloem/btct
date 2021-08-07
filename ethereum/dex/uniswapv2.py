@@ -241,13 +241,15 @@ class pair:
             if blockto(midBlock) > fromBlock + chunkSize:
                 midBlock = fromBlock + chunkSize
             try:
-                logs = wrap_neterrs(w3.eth, 'get_logs', dict(
+                filter_params = dict(
                     topics = [pair.Sync_topic],
-                    address = pairaddr,
                     fromBlock = fromBlock,
                     toBlock = midBlock,
                     **kwparams
-                ))
+                )
+                if pairaddr is not None:
+                    filter_params['address'] = pairaddr
+                logs = wrap_neterrs(w3.eth, 'get_logs', filter_params)
             except asyncio.exceptions.TimeoutError as e:
                 chunkSize //= 2
                 print(e, 'dropping chunkSize to', chunkSize, 'at block', fromBlock)
