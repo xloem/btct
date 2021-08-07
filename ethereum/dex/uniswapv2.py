@@ -213,7 +213,7 @@ class pair:
             else:
                 print('Scanning blockchain from block', fromBlock, 'for', pairobj.db.addr, '...')
             updateLatest = True
-        if lastCachedTx and fromBlock <= lastCachedTx.blocknum:
+        if lastCachedTx and fromBlock < lastCachedTx.blocknum:
             midBlock = min(lastCachedTx.blocknum, blockto(toBlock))
             # TODO: fix ordering to include sub-block info
             if pairobj is None:
