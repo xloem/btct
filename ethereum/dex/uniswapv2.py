@@ -21,7 +21,7 @@ def _ensureblock(numorid):
     else:
         dbblock = db.block[numorid]
     if not dbblock:
-        ethblock = w3.eth.getBlock(numorid)
+        ethblock = wrap_neterrs(w3.eth, 'getBlock', numorid)
         dbblock = db.block.ensure(ethblock.hash, ethblock.number, ethblock.timestamp)
     return dbblock
 
@@ -226,7 +226,8 @@ class pair:
                             do = dex(t.pair.dex, None, None)
                         po = pair(do, p)
                         pairobjs[p.addr] = po
-                yield trade(po, t)
+                if dexobj is None or po.dex.db.addr == dexobj.db.addr:
+                    yield trade(po, t)
             fromBlock = midBlock
             updateLatest = True
         chunkSize = 256#1024*128#*1024
@@ -257,6 +258,8 @@ class pair:
                     if po is None:
                         po = pair(None, db.pair(log.address), log.blockNumber)
                         pairobjs[po.db.addr] = po
+                if dexobj is not None and po.dex.db.addr != dexobj.db.addr:
+                    continue
                 t = db.trade.ensure(
                     id=log.transactionHash,
                     blocknum=log.blockNumber,
@@ -278,8 +281,8 @@ class pair:
                 yield trade(po, t)
             if po is not None:
                 db.c.commit()
-            else:
-                print('no matching trades between blocks', fromBlock, '-', midBlock)
+            #else:
+            #    print('no matching trades between blocks', fromBlock, '-', midBlock)
             fromBlock += chunkSize
     def logs(self, fromBlock=None, toBlock=None, **kwparams):
         return pair._logs(
@@ -457,6 +460,10 @@ class trade:
             )
         except ValueError:
             pass # insufficient reserves
+        starting_bal = (
+                max(1,starting_bal[0]),
+                max(1,starting_bal[1])
+        )
 
         if not self.db.gas_fee:
             self.db.gas_fee = _gaswei(self.db.hash, self.db.block.hash, self.db.blockidx)
@@ -494,8 +501,8 @@ class trade:
                 self.token1gasfee / 10**self.pair.db.token1.decimals, self.pair.db.token1.symbol)
 
         ending_bal = (
-                ending_bal[0] - self.token0gasfee,
-                ending_bal[1] - self.token1gasfee
+                max(1,ending_bal[0] - self.token0gasfee),
+                max(1,ending_bal[1] - self.token1gasfee)
         )
 
             ######## note: gas price would ideally be associated with block, not transaction
