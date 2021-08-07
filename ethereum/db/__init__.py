@@ -134,7 +134,9 @@ class Table:
             wherestr, wherevals = self._where(wherestr, *wherevals)
             query = 'SELECT * FROM ' + self.table.name + ' ' + wherestr
             #print(query, wherevals)
-            return c.execute(query, wherevals)
+            result = c.execute(query, wherevals)
+            #print('->', result.rowcount)
+            return result
         def _update(self, **kwparams):
             wherestr, wherevals = self._where()
             query = 'UPDATE ' + self.table.name + ' SET `' + ', `'.join(key + '` = ?' for key in kwparams.keys()) + ' ' + wherestr
@@ -190,7 +192,7 @@ class Table:
             return self.id
 
     class Column:
-        def __init__(self, idx, name, type, sqltype, foreign = None, primary = False, optional = False):
+        def __init__(self, idx, name, type, sqltype, foreign = None, primary = False, optional = False, index = False):
             self.idx = idx
             self.name = name
             self.type = type
@@ -198,6 +200,7 @@ class Table:
             self.foreign = foreign
             self.primary = primary
             self.optional = optional
+            self.index = index
 
     def __init__(self, __name, *strcols, **colspecifiers):
         #print('TABLE',strcols,coltables)
@@ -215,6 +218,7 @@ class Table:
             primary = False
             big = False
             optional = False
+            index = False
             sqltype = 'BLOB'
             foreign = None
             while isinstance(specifier, typing._Final):
@@ -229,6 +233,10 @@ class Table:
                 if typing.get_origin(specifier) is Big:
                     # Primary
                     big = True
+                    specifier = typing.get_args(specifier)[0]
+                if typing.get_origin(specifier) is Index:
+                    # Index
+                    index = True
                     specifier = typing.get_args(specifier)[0]
                 if type(specifier) is typing.ForwardRef:
                     # non-type string argument
@@ -259,7 +267,7 @@ class Table:
                 sqltype += ' NOT NULL'
                 self.numrequiredcols += 1
             self.colslist.append(
-                Table.Column(len(self.colslist), col, specifier, sqltype, foreign, False, optional)
+                Table.Column(len(self.colslist), col, specifier, sqltype, foreign, False, optional, index)
             )
         self.colsdict = {col.name:col for col in self.colslist}
         self.cols = self.colslist
@@ -280,6 +288,8 @@ class Table:
                 sqltype += ' NOT NULL'
             if sqlname != col.name or sqltype != col.sqltype:
                 raise Exception(self.name + ' col ' + col.name + ' ' + col.sqltype + ' mismatches sql of ' + sqlname + ' ' + sqltype)
+            if col.index:
+                c.execute('CREATE INDEX IF NOT EXISTS `index_' + col.name + '` ON ' + self.name + '(`' + col.name + '`)')
         Table.tables[self.name] = self
 
     def ensure(self, *vals, **kwvals):
@@ -347,6 +357,9 @@ class PrimaryKey(typing.Generic[typing.T]):
 class Big(typing.Generic[typing.T]):
     pass
 
+class Index(typing.Generic[typing.T]):
+    pass
+
 block = Table('block', num=int, time=int)
 acct = Table('acct')
 token = Table('token', symbol=str, decimals=int)
@@ -355,7 +368,7 @@ pair = Table('pair', token0='token', token1='token', dex='dex', index=Optional[i
 
 trade = Table('trade',
         # for ordering
-        blocknum = int,
+        blocknum = Index[int],
         blockidx = int,
         txidx = PrimaryKey[int],
         pair = PrimaryKey['pair'],
