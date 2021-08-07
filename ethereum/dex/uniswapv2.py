@@ -8,6 +8,9 @@ import asyncio, random, math
 MINBLOCK = 9912339
 #MINBLOCK = 10000835
 
+# [X]... as we find new dexes, record their min block when making them
+# [ ]... when resuming, resume at the minimum synced block of all dexes
+
 try:
     # i added this line to debug a strange mismatched abi error.  the line prevents the error =/  quick-workaround
     testrecpt = w3.eth.getTransactionReceipt('0xb31fcb852b18303c672b81d90117220624232801ad949bd4047e009eaed73403')
@@ -224,7 +227,7 @@ class pair:
                             do = dexobj
                         else:
                             do = dex(t.pair.dex, None, None)
-                        po = pair(do, p)
+                        po = pair(do, p, t.block.num)
                         pairobjs[p.addr] = po
                 if dexobj is None or po.dex.db.addr == dexobj.db.addr:
                     yield trade(po, t)
