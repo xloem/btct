@@ -5,6 +5,9 @@ import db
 
 import asyncio, random, math
 
+MINBLOCK = 9912339
+#MINBLOCK = 10000835
+
 try:
     # i added this line to debug a strange mismatched abi error.  the line prevents the error =/  quick-workaround
     testrecpt = w3.eth.getTransactionReceipt('0xb31fcb852b18303c672b81d90117220624232801ad949bd4047e009eaed73403')
@@ -37,7 +40,7 @@ def _gaswei(txid, block, txidx):
     return gas * gasPrice
 
 class dex:
-    def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2', minblock=10000835):
+    def __init__(self, address=abi.uniswapv2_factory_addr, name='UNI-V2', minblock=MINBLOCK):
         dbblock = _ensureblock(minblock)
         self.db = db.dex(address)
         if not self.db:
@@ -109,54 +112,23 @@ class dex:
             yield self.pair_by_index(pairidx)
     def pair_by_index(self, pairidx):
         pairaddr = wrap_neterrs(self.ct.functions.allPairs(pairidx))
-        pairdb = db.pair[pairaddr]
-        if not pairdb:
-            pairct = w3.eth.contract(
-                address = pairaddr,
-                abi = abi.uniswapv2_pair
-            )
-            tokenaddrs = (pairct.functions.token0,pairct.functions.token1)
-            tokens = [None, None]
-            for tokenidx in range(2):
-                tokenaddr = wrap_neterrs(tokenaddrs[tokenidx]())
-                token = db.token(tokenaddr)
-                if token:
-                    symbol = token.symbol
-                else:
-                    try:
-                        symbol = wrap_neterrs(w3.eth.contract(
-                            address=tokenaddr,
-                            abi=abi.uniswapv2_erc20
-                        ).functions.symbol())
-                    except web3.exceptions.SolidityError as e:
-                        print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
-                        symbol = tokenaddr
-                    try:
-                        decimals = wrap_neterrs(w3.eth.contract(
-                            address=tokenaddr,
-                            abi=abi.uniswapv2_erc20
-                        ).functions.decimals())
-                    except web3.exceptions.SolidityError as e:
-                        print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
-                        decimals = 18
-                    token = db.token.ensure(tokenaddr, symbol, decimals)
-                tokens[tokenidx] = token
-            pairdb = db.pair(
-                pairaddr,
-                tokens[0].addr,
-                tokens[1].addr,
-                self.db.addr,
-                index=pairidx
-            )
-        elif pairdb.index != pairidx:
-            pairdb['index'] = pairidx
-        return pair(self, pairdb)
+        result = pair(self, pairaddr)
+        if result.db.index != pairidx:
+            result.db['index'] = pairidx
+        return result
+
+    @staticmethod
+    def logs_all(fromBlock=None, toBlock=None, **kwparams):
+        return pair._logs(
+                fromBlock=fromBlock,
+                toBlock=toBlock,
+                **kwparams)
 
     def logs(self, fromBlock=None, toBlock=None, **kwparams):
         return pair._logs(
                 fromBlock=fromBlock,
                 toBlock=toBlock,
-                firstDexBlock=self.db.start,
+                dexobj=self,
                 # todo: last cached tx, and return only for this dex
                 **kwparams
         )
@@ -179,17 +151,36 @@ class pair:
     ## w3.eth.get_logs({'topics':[pair.Sync_topic],'fromBlock':None,'toBlock':None})
     # and parse these logs with ...
     ## (utils.events.get_event_data(w3.codec, pair.Sync_abi, log) for log in logs)
-    def __init__(self, dexobj, dbpair):
-        self.db = dbpair
+    def __init__(self, dexobj, dbpair_or_addr, minblock=MINBLOCK):
+        if type(dbpair_or_addr) is db.Table.Row:
+            self.db = dbpair_or_addr
+            addr = self.db.addr
+            if not self.db:
+                dbpair_or_addr = self.db.addr
+        else:
+            addr = dbpair_or_addr
         self.ct = w3.eth.contract(
-            address = self.db.addr,
+            address = addr,
             abi = abi.uniswapv2_pair
         )
-        if dexobj is None:
-            dexobj = dex(wrap_neterrs(self.ct.functions.factory), None, None)
-        self.dex = dexobj
+        if not dexobj:
+            dexaddr = wrap_neterrs(self.ct.functions.factory())
+            self.dex = dex(dexaddr, dexaddr, minblock=minblock)
+        else:
+            self.dex = dexobj
+        if type(dbpair_or_addr) is not db.Table.Row:
+            self.db = db.pair(addr)
+            if not self.db:
+                token0addr = wrap_neterrs(self.ct.functions.token0())
+                token1addr = wrap_neterrs(self.ct.functions.token1())
+                self.db = db.pair.ensure(
+                    addr,
+                    token(token0addr).db,
+                    token(token1addr).db,
+                    self.dex.db.addr
+                )
     @staticmethod
-    def _logs(fromBlock=None, toBlock=None, pairobj=None, firstDexBlock=None, lastCachedTx=None, onCacheUpdate=lambda tx: None, **kwparams):
+    def _logs(fromBlock=None, toBlock=None, pairobj=None, dexobj=None, lastCachedTx=None, onCacheUpdate=lambda tx: None, **kwparams):
         # the best timestamp granularity appears to be the timestamp of the block, which is well known
         # we could display them evenly distributed over the block, if desired
 
@@ -206,8 +197,11 @@ class pair:
         # it looks like logIndex might be exchangeable with something similar to txOut
         fromBlock = blockfrom(fromBlock)
         updateLatest = False
-        if fromBlock <= firstDexBlock.num and not lastCachedTx:
-            fromBlock = firstDexBlock.num
+        if not lastCachedTx:
+            if dexobj and fromBlock < dexobj.db.start.num:
+                fromBlock = dexobj.db.start.num
+            elif fromBlock == 0:
+                fromBlock = MINBLOCK
             if pairobj is None:
                 print('Scanning blockchain from block', fromBlock, '...')
             else:
@@ -226,11 +220,11 @@ class pair:
                 if po is None or po.db.addr != p.addr:
                     po = pairobjs.get(p.addr)
                     if po is None:
-                        do = dexobjs.get(d.addr)
+                        if dexobj is not None:
+                            do = dexobj
+                        else:
+                            do = dex(t.pair.dex, None, None)
                         po = pair(do, p)
-                        if do is None:
-                            do = po.dex
-                            dexobjs[do.db.addr] = do
                         pairobjs[p.addr] = po
                 yield trade(po, t)
             fromBlock = midBlock
@@ -261,7 +255,7 @@ class pair:
                 if po is None or po.db.addr != log.address:
                     po = pairobjs.get(log.address)
                     if po is None:
-                        po = pair(None, db.pair(log.address))
+                        po = pair(None, db.pair(log.address), log.blockNumber)
                         pairobjs[po.db.addr] = po
                 t = db.trade.ensure(
                     id=log.transactionHash,
@@ -269,10 +263,10 @@ class pair:
                     blockidx=log.transactionIndex,
                     # it could be nice to convert txidx to be local to the transaction
                     txidx=log.logIndex,
-                    pair=pairobj.db,
+                    pair=po.db,
                     block=db.block.ensure(log.blockHash, log.blockNumber),
-                    trader0=db.acct.ensure(log.address),
-                    trader1=db.acct.ensure(pairaddr),
+                    trader0=db.acct.ensure(log.address),  # due to an unfixed mistake, these are
+                    trader1=db.acct.ensure(log.address),  # both the address of the pair right now
                     const0=log.args.reserve0,
                     const1=log.args.reserve1,
                     gas_fee=_gaswei(log.transactionHash, log.blockHash, log.transactionIndex),
@@ -281,15 +275,18 @@ class pair:
                     if not lastCachedTx or lastCachedTx.blocknum < t.blocknum:
                         lastCachedTx = t
                         onCacheUpdate(t)
-                yield trade(pairobj, t)
-            db.c.commit()
+                yield trade(po, t)
+            if po is not None:
+                db.c.commit()
+            else:
+                print('no matching trades between blocks', fromBlock, '-', midBlock)
             fromBlock += chunkSize
     def logs(self, fromBlock=None, toBlock=None, **kwparams):
         return pair._logs(
                 fromBlock=fromBlock,
                 toBlock=toBlock,
                 pairobj=self,
-                firstDexBlock=self.dex.db.start,
+                dexobj=self.dex,
                 lastCachedTx=self.db.latest_synced_trade,
                 onCacheUpdate=lambda tx: self.db.__setitem__('latest_synced_trade', tx),
                 **kwparams)
@@ -477,9 +474,20 @@ class trade:
                 weth1 = self.pair.dex.pair(WETH, self.db.token1.addr).trade4block(self.db.block.hash)
                 self.token1gasfee = weth1.token1_needed(self.db.gas_fee) if not weth1.pair.swapped else weth1.token0_needed(self.db.gas_fee)
             except:
+                if self.token0gasfee is None:
+                    print('todo: path routing, no direct path found for', str(self.db))
+                    #raise Exception('no weth path?', str(self.db))
+                    return ((1,1),(1,1))
+        if self.token1gasfee is None:
+            try:
                 self.token1gasfee = self.token1_needed(self.token0gasfee)
-        if self.token0gasfee is None:
-            self.token0gasfee = self.token0_needed(self.token1gasfee)
+            except:
+                self.token1gasfee = self.reserves()[1]
+        elif self.token0gasfee is None:
+            try:
+                self.token0gasfee = self.token0_needed(self.token1gasfee)
+            except:
+                self.token0gasfee = self.reserves()[0]
 
         print('gas limit:',
                 self.token0gasfee / 10**self.pair.db.token0.decimals, self.pair.db.token0.symbol,
@@ -595,6 +603,47 @@ class router:
         txn = w3.eth.account.sign_transaction(txn, private_key=acct.privateKey)
         w3.eth.send_raw_transaction(txn.rawTransaction)
         return txn.hash
+
+class token:
+    def __init__(self, db_or_addr):
+        if type(db_or_addr) is db.Table.Row:
+            self.db = db_or_addr
+            addr = self.db.addr
+        else:
+            self.db = None
+            addr = db_or_addr
+        self.ct = w3.eth.contract(
+            address=addr,
+            abi=abi.uniswapv2_erc20
+        )
+        if not self.db:
+            self.db = db.token(addr)
+        if not self.db:
+            try:
+                symbol = wrap_neterrs(self.ct.functions.symbol())
+            except web3.exceptions.SolidityError as e:
+                print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
+                symbol = addr
+            try:
+                decimals = wrap_neterrs(self.ct.functions.decimals())
+            except web3.exceptions.SolidityError as e:
+                print('pairidx',pairidx,'token',tokenidx,tokenaddr,'raised an erc20 error:', e, e.__cause__)
+                decimals = 18
+            self.db = db.token.ensure(addr, symbol, decimals)
+
+# get to do tree search?  breadth-first.
+# will design for depth-first and then queueify
+#def paths(srctokenaddr, *dsttokenaddrs):
+#    srcaddr = srctokenaddr
+#    for dstaddr in dsttokenaddrs:
+#        for pairdb in db.pair(token0 = srcaddr, token1 = dstaddr):
+#            yield pairdb
+#        for pairdb in db.pair(token0 = dstaddr, token1 = srcaddr):
+#            pairdb.swapped = True
+#            yield pairdb
+#    for pairdb in db.pair(token0 = srcaddr):
+        
+
 
 # i calculated this using pysym and it is quite wrong.
 # i would like to recalculate using pysym to understand better.
