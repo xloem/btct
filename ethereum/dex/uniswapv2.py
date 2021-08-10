@@ -305,12 +305,12 @@ class pair:
                 )
                 yield trade(po, t)
             if t is not None:
+                db.c.commit()
                 if updateLatest:
                     if not lastCachedTx or lastCachedTx.blocknum < t.blocknum:
                         print('storing tx cache for block', t.block.num)
                         pairs_query(latest_synced_trade=lastCachedTx)['latest_synced_trade'] = t
                         lastCachedTx = t
-                db.c.commit()
             #else:
             #    print('no matching trades between blocks', fromBlock, '-', midBlock)
             fromBlock += chunkSize
