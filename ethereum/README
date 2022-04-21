@@ -1,3 +1,7 @@
+solana py: https://michaelhly.github.io/solana-py
+serum py, higher level: git+https://github.com/serum-community/pyserum
+
+----
 # i missed this readme when starting on uniswap and direct contracts
 
 Tutorial script.  Tutorial assumes you have it.
