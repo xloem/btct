@@ -5,7 +5,7 @@ from solana.rpc.api import Client
 import pyserum
 import pyserum.connection
 
-import asyncio, base64, collections, json
+import asyncio, base64, collections, datetime, time, json
 
 import db
 def hex2b(hex):
@@ -107,6 +107,8 @@ class pair:
                 self.name = name
                 self.addr = getattr(pair.market.state, name)()
                 self.decoder = decoder
+                self.data = None
+                self.slot = None
             async def __aenter__(self):
                 await ws.account_subscribe(self.addr, None, 'base64')
                 self.id = (await ws.recv()).result
@@ -119,17 +121,25 @@ class pair:
                 del Subscr.subscrs[self.id]
                 del self.id
             @staticmethod
-            def parse(str):
-                obj = json.loads(str)
+            def parse(rawstr):
+                obj = json.loads(rawstr)
                 params = obj['params']
-                parsed = params['result']['value']
-                addr = parsed['owner']
+                result = params['result']
+                slot = result['context']['slot']
+                value = result['value']
+                addr = value['owner']
                 id = params['subscription']
-                data = base64.decodebytes(parsed['data'][0].encode())
+                data = base64.decodebytes(value['data'][0].encode())
                 subscr = Subscr.subscrs[id]
+                subscr.last_data = subscr.data
+                subscr.last_slot = subscr.slot
                 subscr.data = subscr.decoder(data)
+                subscr.slot = slot
                 return subscr
-
+            @staticmethod
+            async def next():
+                raw_event = await websockets.legacy.client.WebSocketClientProtocol.recv(ws)
+                return Subscr.parse(raw_event)
         def decode_orderbook(bytes):
             return pyserum.market.market.OrderBook.from_bytes(pair.market.state, bytes)
 
@@ -141,10 +151,32 @@ class pair:
                 Subscr(ws, 'event_queue', pyserum.market.market.decode_event_queue) as events
             ):
 
+            # fill enough initial data to start forming orderbooks
+            while await Subscr.next() not in (bids, asks):
+                pass
+
+            mark_slot = None
+
+            last_price = None
             while True:
-                raw_event = await websockets.legacy.client.WebSocketClientProtocol.recv(ws)
-                event = Subscr.parse(raw_event)
-                print(event.name, event.data)
+                event = await Subscr.next()
+                #if event.last_slot == event.slot:
+                #    continue
+                #print(event.name, event.slot)
+                if event is bids or event is asks and bids.slot == asks.slot:
+                    price = (bids.data.get_l2(1)[0].price, asks.data.get_l2(1)[0].price)
+                    if price != last_price:
+                        now = time.time()
+                        if mark_slot is None or now - mark_now > 60:
+                            mark_slot = bids.slot
+                            mark_blocktime = solana.get_block_time(bids.slot)['result']
+                            mark_now = now
+                            ts = mark_blocktime
+                        else:
+                            ts = int(now - mark_now + mark_blocktime)
+                        ts = datetime.datetime.utcfromtimestamp(ts).isoformat()
+                        print(ts, bids.slot, str(self.db), price[0], '-', price[1])
+                        last_price = price
 
 
     #async def stream(self):
