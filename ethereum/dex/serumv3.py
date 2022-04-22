@@ -2,6 +2,7 @@ from solana.publickey import b58decode, b58encode
 from solana.rpc.websocket_api import connect as WSClient
 import websockets.legacy.client
 from solana.rpc.api import Client
+from solana.rpc.async_api import AsyncClient
 import pyserum
 import pyserum.connection
 
@@ -21,9 +22,14 @@ def b2hex(bytes):
 db.b2hex = b2hex
 db.hex2b = hex2b
 
-API = 'api.mainnet-beta.solana.com'
+# serum runs a faster api that likely gives more requests
+API = 'solana-api.projectserum.com'
 solana = Client(f'https://{API}')
-WS_API = f'ws://{API}'
+asolana = AsyncClient(f'https://{API}')
+if API == 'solana-api.projectserum.com':
+    WS_API = 'ws://api.mainnet-beta.solana.com'
+else:
+    WS_API = f'ws://{API}'
 
 #PROGRAM_ID = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin' # serum dex program v3 from atrix, works for me
 #PROGRAM_ID = 'SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8', # serum dex program from source code, no txs for me
@@ -85,6 +91,7 @@ class pair:
             self.db = db.pair(addr)
             if not self.db:
                 self.market = pyserum.market.Market.load(solana, addr)
+                market_state = self.market.state
                 token0addr = self.market.state.base_mint()._key
                 token1addr = self.market.state.quote_mint()._key
                 self.db = db.pair.ensure(
@@ -98,8 +105,36 @@ class pair:
             parsed_market = pyserum.market.state.MarketState._make_parsed_market(bytes_data)
             market_state = pyserum.market.state.MarketState(parsed_market, PROGRAM_ID, self.db.token0.decimals, self.db.token1.decimals)
             self.market = pyserum.market.Market(solana, market_state)
+        self.amarket = pyserum.market.AsyncMarket(asolana, market_state)
 
-    async def pump(self):
+    #def logs(self, fromBlock=None, toBlock=None, **kwparams):
+        # the available api is to walk txs backward based on account address. might check how this looks for the requests, asks, bids, events, and market accounts.
+        # solana.getSignaturesForAddress()
+
+        # this seems to basically mean parsing the binary parameters passed to the programs
+
+
+    async def buy_quote_sell_bid(self, keypair, amt, post_only = True, immediate_or_cancel = False):
+        return self.trade(keypair, False, amt, post_only, immediate_or_cancel)
+    async def sell_quote_buy_bid(self, keypair, amt, post_only = True, immediate_or_cancel = False):
+        return self.trade(keypair, True, amt, post_only, immediate_or_cancel)
+
+    async def trade(self, keypair, sell_quote_buy_bid : bool, amt, post_only = True, immediate_or_cancel = False):
+        pubkey = keypair.public_key
+        if sell_quote_buy_bid:
+            side = pyserum.enums.Side.SELL
+        else:
+            side = pyserum.enums.Side.BUY
+        if immediate_or_cancel:
+            if post_only:
+                raise NotImplementedError('IOC post_only')
+            type = pyserum.enums.OrderType.IOC
+        elif post_only:
+            type = pyserum.enums.OrderType.POST_ONLY
+        else:
+            type = pyserum.enums.OrderType.LIMIT
+
+    async def pump(self, commitment = 'processed'):
         pair = self
         class Subscr:
             subscrs = {}
@@ -110,7 +145,7 @@ class pair:
                 self.data = None
                 self.slot = None
             async def __aenter__(self):
-                await ws.account_subscribe(self.addr, None, 'base64')
+                await ws.account_subscribe(self.addr, commitment, 'base64')
                 self.id = (await ws.recv()).result
                 while type(self.id) is not int:
                     self.id = (await ws.recv()).result
@@ -163,7 +198,7 @@ class pair:
                 #if event.last_slot == event.slot:
                 #    continue
                 #print(event.name, event.slot)
-                if event is bids or event is asks and bids.slot == asks.slot:
+                if event in (bids, asks) and bids.slot == asks.slot:
                     price = (bids.data.get_l2(1)[0].price, asks.data.get_l2(1)[0].price)
                     if price != last_price:
                         now = time.time()

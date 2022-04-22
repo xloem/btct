@@ -1,6 +1,14 @@
-import asyncio
 print('importing ...')
+import asyncio, os
+import solana
 import dex.serumv3 as serumv3
+if not os.path.exists('solana.seed'):
+    key = solana.keypair.Keypair.generate()
+    with open('solana.seed', 'wb') as keyfile:
+        keyfile.write(key.seed)
+else:
+    with open('solana.seed', 'rb') as keyfile:
+        key = solana.keypair.Keypair.from_seed(keyfile.read())
 print('starting ..')
 
 async def main():
