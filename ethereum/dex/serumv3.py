@@ -75,6 +75,10 @@ class token:
             symbol = TOKEN_NAMES_BY_ADDRESSES.get(addr, b2hex(addr))
             decimals = pyserum.utils.get_mint_decimals(solana, b2hex(addr))
             self.db = db.token.ensure(addr, symbol, decimals)
+    def coin_pubkey_to_token_account(self, pubkey):
+        accts =  solana.get_token_accounts_by_owner(pubkey, str(self.db.addr))
+        if len(accts) == 0:
+
 
 class pair:
     def __init__(self, dexobj, dbpair_or_addr):
