@@ -1,6 +1,6 @@
 import asyncio
 from solana.publickey import b58decode, b58encode
-from solana.rpc.websocket_api import connect as ws
+from solana.rpc.websocket_api import connect as WSClient
 from solana.rpc.api import Client
 import pyserum
 import pyserum.connection
@@ -21,7 +21,9 @@ def b2hex(bytes):
 db.b2hex = b2hex
 db.hex2b = hex2b
 
-solana = Client('https://api.mainnet-beta.solana.com')
+API = 'api.mainnet-beta.solana.com'
+solana = Client(f'https://{API}')
+WS_API = f'ws://{API}'
 
 PROGRAM_ID = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin' # serum dex program v3 from atrix, works for me
 #PROGRAM_ID = 'SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8', # serum dex program from source code, no txs for me
@@ -38,7 +40,16 @@ class dex:
             yield token(token_mint.address._key)
     def pairs(self):
         for live_market in pyserum.connection.get_live_markets():
-            yield pair(self, live_market.address)
+            name = live_market.name
+            #if name.startswith('so') or name.startswith('st'):
+            #    name = name[2:]
+            base_name, quote_name = name.split('/')
+            p = pair(self, live_market.address)
+            if p.db.token0.symbol != base_name:
+                p.db.token0.symbol = base_name
+            if p.db.token1.symbol != quote_name:
+                p.db.token1.symbol = quote_name
+            yield p
 
     #def pair(self, token0, token1):
     #    tokens=[token0,token1]
@@ -80,3 +91,12 @@ class pair:
                         token(token1addr).db,
                         self.dex.db.addr
                 )
+
+    async def stream(self):
+        async with WSCLient(WS_API) as ws:
+            await websocket.program_subscribe(str(self.db.addr))
+            resp = ws.recv()
+            while True:
+                resp = await websockets.legacy.client.WebSocketClientProtocol.recv(websocket)
+                resp = json.loads(resp)
+                pubkey = resp['params']['result']['value']['pubkey']
