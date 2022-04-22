@@ -3,6 +3,9 @@ from solana.rpc.websocket_api import connect as WSClient
 import websockets.legacy.client
 from solana.rpc.api import Client
 from solana.rpc.async_api import AsyncClient
+from spl.token.client import Client as TokenClient
+from spl.token.async_client import AsyncClient as TokenAsyncClient
+import spl
 import pyserum
 import pyserum.connection
 
@@ -62,7 +65,8 @@ class dex:
     #    tokens=[token0,token1]
 
 class token:
-    def __init__(self, db_or_addr):
+    def __init__(self, dexobj, db_or_addr):
+        self.dexobj = dexobj
         if type(db_or_addr) is db.Table.Row:
             self.db = db_or_addr
             addr = self.db.addr
@@ -75,10 +79,13 @@ class token:
             symbol = TOKEN_NAMES_BY_ADDRESSES.get(addr, b2hex(addr))
             decimals = pyserum.utils.get_mint_decimals(solana, b2hex(addr))
             self.db = db.token.ensure(addr, symbol, decimals)
-    def coin_pubkey_to_token_account(self, pubkey):
+    def balance(self, account):
+        return solana.get_token_account_balance(account)
+    def coin_pubkey_to_token_account(self, pubkey_or_keypair):
         accts =  solana.get_token_accounts_by_owner(pubkey, str(self.db.addr))
         if len(accts) == 0:
-
+            client = TokenClient(solana, keypair.public_key, self.dexobj.db.addr, keypair)
+            client.create_account(keypair.pubkey
 
 class pair:
     def __init__(self, dexobj, dbpair_or_addr):
