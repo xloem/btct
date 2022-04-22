@@ -1,10 +1,10 @@
-from solana.publickey import b58decode, b58encode
+from solana.publickey import b58decode, b58encode, PublicKey
 from solana.rpc.websocket_api import connect as WSClient
 import websockets.legacy.client
-from solana.rpc.api import Client
+from solana.rpc.api import Client, types as solana_types
 from solana.rpc.async_api import AsyncClient
-from spl.token.client import Client as TokenClient
-from spl.token.async_client import AsyncClient as TokenAsyncClient
+from spl.token.client import Token as TokenClient
+from spl.token.async_client import AsyncToken as TokenAsyncClient
 import spl
 import pyserum
 import pyserum.connection
@@ -81,11 +81,15 @@ class token:
             self.db = db.token.ensure(addr, symbol, decimals)
     def balance(self, account):
         return solana.get_token_account_balance(account)
-    def coin_pubkey_to_token_account(self, pubkey_or_keypair):
-        accts =  solana.get_token_accounts_by_owner(pubkey, str(self.db.addr))
+    def account(self, keypair):
+        import pdb; pdb.set_trace()
+        accts = solana.get_token_accounts_by_owner(keypair.public_key, solana_types.TokenAccountOpts(mint=str(self.db.addr)), commitment='processed')['result']['value']
         if len(accts) == 0:
-            client = TokenClient(solana, keypair.public_key, self.dexobj.db.addr, keypair)
-            client.create_account(keypair.pubkey
+            client = TokenClient(solana, keypair.public_key, PublicKey(self.dexobj.db.addr), keypair)
+            print(f'Creating {self.db.symbol} account for {keypair.public_key} ...')
+            accts = [client.create_account(keypair.public_key)]
+            print(f'Created {accts[0]}.')
+        return accts[0]
 
 class pair:
     def __init__(self, dexobj, dbpair_or_addr):
@@ -105,10 +109,12 @@ class pair:
                 market_state = self.market.state
                 token0addr = self.market.state.base_mint()._key
                 token1addr = self.market.state.quote_mint()._key
+                self.token0 = token(self.dex, token0addr)
+                self.token1 = token(self.dex, token1addr)
                 self.db = db.pair.ensure(
                         addr,
-                        token(token0addr).db,
-                        token(token1addr).db,
+                        self.token0.db,
+                        self.token1.db,
                         self.dex.db.addr
                 )
         if self.market is None:
@@ -116,6 +122,8 @@ class pair:
             parsed_market = pyserum.market.state.MarketState._make_parsed_market(bytes_data)
             market_state = pyserum.market.state.MarketState(parsed_market, PROGRAM_ID, self.db.token0.decimals, self.db.token1.decimals)
             self.market = pyserum.market.Market(solana, market_state)
+            self.token0 = token(self.dex, self.db.token0)
+            self.token1 = token(self.dex, self.db.token1)
         self.amarket = pyserum.market.AsyncMarket(asolana, market_state)
 
     #def logs(self, fromBlock=None, toBlock=None, **kwparams):
@@ -125,12 +133,12 @@ class pair:
         # this seems to basically mean parsing the binary parameters passed to the programs
 
 
-    async def buy_quote_sell_bid(self, keypair, amt, post_only = True, immediate_or_cancel = False):
+    async def trade_0to1(self, keypair, amt, post_only = True, immediate_or_cancel = False):
         return self.trade(keypair, False, amt, post_only, immediate_or_cancel)
-    async def sell_quote_buy_bid(self, keypair, amt, post_only = True, immediate_or_cancel = False):
+    async def trade_1to0(self, keypair, amt, post_only = True, immediate_or_cancel = False):
         return self.trade(keypair, True, amt, post_only, immediate_or_cancel)
 
-    async def trade(self, keypair, sell_quote_buy_bid : bool, amt, post_only = True, immediate_or_cancel = False):
+    async def trade(self, keypair, trade_1to0 : bool, amt, post_only = True, immediate_or_cancel = False):
         pubkey = keypair.public_key
         if sell_quote_buy_bid:
             side = pyserum.enums.Side.SELL

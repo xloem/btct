@@ -16,6 +16,12 @@ async def main():
     for pair in dex.pairs():
         print(pair.db, pair.db.token0.symbol, pair.db.token1.symbol)
         if 'SOL' in pair.db.token0.symbol:
+            base_acct = pair.token0.account(key)
+            quote_acct = pair.token1.account(key)
+            base_balance = pair.token0.balance(base_acct)
+            quote_balance = pair.token1.balance(quote_acct)
+            print(base_balance, quote_balance)
+
             print(pair.db.addr)
             await pair.pump()
 
