@@ -3,6 +3,7 @@ from solana.rpc.websocket_api import connect as WSClient
 import websockets.legacy.client
 from solana.rpc.api import Client, types as solana_types
 from solana.rpc.async_api import AsyncClient
+from solana.rpc.core import RPCException
 from spl.token.client import Token as TokenClient
 from spl.token.async_client import AsyncToken as TokenAsyncClient
 import spl
@@ -80,16 +81,28 @@ class token:
             decimals = pyserum.utils.get_mint_decimals(solana, b2hex(addr))
             self.db = db.token.ensure(addr, symbol, decimals)
     def balance(self, account):
-        return solana.get_token_account_balance(account)
+        value = solana.get_token_account_balance(account)['result']['value']
+        # value['decimals']
+        return value['amount']
     def account(self, keypair):
-        import pdb; pdb.set_trace()
         accts = solana.get_token_accounts_by_owner(keypair.public_key, solana_types.TokenAccountOpts(mint=str(self.db.addr)), commitment='processed')['result']['value']
         if len(accts) == 0:
-            client = TokenClient(solana, keypair.public_key, PublicKey(self.dexobj.db.addr), keypair)
+            client = TokenClient(solana, program_id=PublicKey(self.dexobj.db.addr), pubkey=PublicKey(self.db.addr), payer=keypair)
             print(f'Creating {self.db.symbol} account for {keypair.public_key} ...')
-            accts = [client.create_account(keypair.public_key)]
-            print(f'Created {accts[0]}.')
-        return accts[0]
+            while True:
+                try:
+                    acct = client.create_associated_token_account(keypair.public_key)
+                    break
+                except RPCException as exc:
+                    data = exception.args[0]['data']
+                    if data['unitsConsumed'] == 0:
+                        if data['err'] == 'BlockhashNotFound':
+                            continue
+                    raise
+            print(f'Created {accts}.')
+            return acct
+        else:
+            return accts[0]['pubkey']
 
 class pair:
     def __init__(self, dexobj, dbpair_or_addr):
