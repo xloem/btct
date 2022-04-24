@@ -4,6 +4,8 @@ import websockets.legacy.client
 from solana.rpc.api import Client, types as solana_types
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.core import RPCException
+from solana.transaction import Transaction
+import solana.system_program as system_program
 from spl.token.client import Token as TokenClient
 from spl.token.async_client import AsyncToken as TokenAsyncClient
 import spl
@@ -64,6 +66,14 @@ class dex:
 
     #def pair(self, token0, token1):
     #    tokens=[token0,token1]
+
+    def balance(self, address):
+        return solana.get_balance(address, commitment = 'processed')['result']['value']
+
+    def transfer(self, keypair, destination_address, amount=None):
+            txn = Transaction().add(transfer(system_program.TransferParams(from_pubkey=keypair.public_key, to_pubkey = PublicKey(destination_address), lamports=amount)))
+            return solana.send_transaction(txn, keypair)['result']
+
 
 class token:
     def __init__(self, dexobj, db_or_addr):
