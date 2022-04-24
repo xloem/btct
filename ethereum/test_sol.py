@@ -9,11 +9,11 @@ if not os.path.exists('solana.seed'):
 else:
     with open('solana.seed', 'rb') as keyfile:
         key = solana.keypair.Keypair.from_seed(keyfile.read())
-print('main account:', key.public_key)
 print('starting ..')
 
 async def main():
     dex = serumv3.dex()
+    print('main account:', key.public_key, 'balance =', dex.balance(key.public_key))
     for pair in dex.pairs():
         print(pair.db, pair.db.token0.symbol, pair.db.token1.symbol)
         if 'SOL' in pair.db.token0.symbol:
