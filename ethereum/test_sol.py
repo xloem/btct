@@ -20,10 +20,17 @@ async def main():
             print('market = ', pair.db.addr)
             base_acct = pair.token0.account(key)
             base_balance = pair.token0.balance(base_acct)
-            print(pair.db.token0.symbol, str(pair.db.token0.addr), 'acct =', base_acct, 'balance =', base_balance)
+            print(pair.db.token0.symbol, str(pair.db.token0.addr), 'acct =', base_acct, 'balance =', repr(base_balance))
             quote_acct = pair.token1.account(key)
             quote_balance = pair.token1.balance(quote_acct)
             print(pair.db.token1.symbol, str(pair.db.token1.addr), 'acct =', quote_acct, 'balance =', quote_balance)
+
+            if base_balance == 0:
+                txid = dex.transfer(key, base_acct, dex.balance(key.public_key) // 2)
+                print('transferred into base, txid =', txid)
+            else:
+                print('base balance nonzero, not transferring')
+
 
             await pair.pump()
 

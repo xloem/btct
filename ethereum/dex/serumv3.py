@@ -71,7 +71,8 @@ class dex:
         return solana.get_balance(address, commitment = 'processed')['result']['value']
 
     def transfer(self, keypair, destination_address, amount=None):
-            txn = Transaction().add(transfer(system_program.TransferParams(from_pubkey=keypair.public_key, to_pubkey = PublicKey(destination_address), lamports=amount)))
+            txn = Transaction().add(system_program.transfer(system_program.TransferParams(from_pubkey=keypair.public_key, to_pubkey = PublicKey(destination_address), lamports=amount)))
+            raise Exception('need to wrap')
             return solana.send_transaction(txn, keypair)['result']
 
 
@@ -93,7 +94,7 @@ class token:
     def balance(self, account):
         value = solana.get_token_account_balance(account)['result']['value']
         # value['decimals']
-        return value['amount']
+        return int(value['amount'])
     def account(self, keypair):
         accts = solana.get_token_accounts_by_owner(keypair.public_key, solana_types.TokenAccountOpts(mint=str(self.db.addr)), commitment='processed')['result']['value']
         if len(accts) == 0:
