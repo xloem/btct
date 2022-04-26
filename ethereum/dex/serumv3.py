@@ -4,10 +4,12 @@ import websockets.legacy.client
 from solana.rpc.api import Client, types as solana_types
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.core import RPCException
-from solana.transaction import Transaction
+from solana.transaction import AccountMeta, Transaction, TransactionInstruction
 import solana.system_program as system_program
 from spl.token.client import Token as TokenClient
 from spl.token.async_client import AsyncToken as TokenAsyncClient
+from spl.token.constants import TOKEN_PROGRAM_ID, WRAPPED_SOL_MINT
+import spl.token.instructions
 import spl
 import pyserum
 import pyserum.connection
@@ -43,6 +45,21 @@ PROGRAM_ID = str(pyserum.instructions.DEFAULT_DEX_PROGRAM_ID)
 
 TOKEN_NAMES_BY_ADDRESSES = {token.address._key:token.name for token in pyserum.connection.get_token_mints()}
 
+import construct
+
+SYNC_NATIVE_INSTRUCTION_LAYOUT = construct.Struct("instruction_type" / construct.Int8ul)
+SYNC_NATIVE = 17
+
+def sync_native(pubkey, program_id = TOKEN_PROGRAM_ID) -> TransactionInstruction:
+    data = SYNC_NATIVE_INSTRUCTION_LAYOUT.build(dict(instruction_type=SYNC_NATIVE))
+    return TransactionInstruction(
+        keys=[
+            AccountMeta(pubkey=pubkey, is_signer=False, is_writable=True),
+        ],
+        program_id = program_id,
+        data = data
+    )
+
 class dex:
     def __init__(self, programid = PROGRAM_ID, name = 'Serum V3'):
         self.db = db.dex(programid)
@@ -70,21 +87,32 @@ class dex:
     def balance(self, address):
         return solana.get_balance(address, commitment = 'processed')['result']['value']
 
-    def transfer(self, keypair, destination_address, amount=None):
-            txn = Transaction().add(system_program.transfer(system_program.TransferParams(from_pubkey=keypair.public_key, to_pubkey = PublicKey(destination_address), lamports=amount)))
-            raise Exception('need to wrap')
-            return solana.send_transaction(txn, keypair)['result']
+    def transfer(self, keypair, destination_address, amount):
+       instructions = [
+               system_program.transfer(system_program.TransferParams(from_pubkey=keypair.public_key, to_pubkey = PublicKey(destination_address), lamports=amount)),
+       ]
+       txn = Transaction().add(*instructions)
+       return solana.send_transaction(txn, keypair)['result']
 
 
 class token:
-    def __init__(self, dexobj, db_or_addr):
-        self.dexobj = dexobj
+    def __new__(cls, dexobj, db_or_addr):
         if type(db_or_addr) is db.Table.Row:
-            self.db = db_or_addr
-            addr = self.db.addr
+            addr = db_or_addr.addr
         else:
-            self.db = None
             addr = db_or_addr
+        if cls is token and str(addr) == str(WRAPPED_SOL_MINT):
+            cls = wrapped_sol
+        return super().__new__(cls)
+    def __init__(self, dexobj, db_or_addr):
+        if type(db_or_addr) is db.Table.Row:
+            dbobj = db_or_addr
+            addr = dbobj.addr
+        else:
+            dbobj = None
+            addr = db_or_addr
+        self.dex = dexobj
+        self.db = dbobj
         if not self.db:
             self.db = db.token(addr)
         if not self.db:
@@ -98,7 +126,7 @@ class token:
     def account(self, keypair):
         accts = solana.get_token_accounts_by_owner(keypair.public_key, solana_types.TokenAccountOpts(mint=str(self.db.addr)), commitment='processed')['result']['value']
         if len(accts) == 0:
-            client = TokenClient(solana, program_id=PublicKey(self.dexobj.db.addr), pubkey=PublicKey(self.db.addr), payer=keypair)
+            client = TokenClient(solana, program_id=PublicKey(self.dex.db.addr), pubkey=PublicKey(self.db.addr), payer=keypair)
             print(f'Creating {self.db.symbol} account for {keypair.public_key} ...')
             while True:
                 try:
@@ -114,6 +142,38 @@ class token:
             return acct
         else:
             return accts[0]['pubkey']
+
+class wrapped_sol(token):
+    def wrap(self, keypair, deposit_amount = None, token_account = None):
+        instructions = []
+
+        if token_account is None:
+            token_account = self.account(keypair.public_key)
+
+        if deposit_amount is not None:
+            instructions.append(
+               system_program.transfer(system_program.TransferParams(from_pubkey=keypair.public_key, to_pubkey = PublicKey(token_account), lamports=deposit_amount))
+            )
+
+        instructions.append(sync_native(token_account, program_id = TOKEN_PROGRAM_ID))
+
+        txn = Transaction().add(*instructions)
+        return solana.send_transaction(txn, keypair)['result']
+    def unwrap(self, keypair, withdraw_to_addr = None, token_account = None):
+        if token_account is None:
+            token_account = self.account(keypair.public_key)
+        instructions = []
+        if withdraw_to_addr is None:
+            withdraw_to_addr = keypair.public_key
+        instructions.append(
+            spl.token.instructions.close_account(spl.token.instructions.CloseAccountParams(
+                program_id = PublicKey(TOKEN_PROGRAM_ID),
+                account = PublicKey(token_account),
+                dest = PublicKey(withdraw_to_addr)
+            ))
+        )
+        txn = Transaction().add(*instructions)
+        return solana.send_transaction(txn, keypair)['result']
 
 class pair:
     def __init__(self, dexobj, dbpair_or_addr):
