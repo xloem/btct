@@ -25,18 +25,26 @@ async def main():
             quote_balance = pair.token1.balance(quote_acct)
             print(pair.db.token1.symbol, str(pair.db.token1.addr), 'acct =', quote_acct, 'balance =', quote_balance)
 
-            if base_balance == 0:
-                #txid = dex.transfer(key, base_acct, dex.balance(key.public_key) // 2)
-                if dex.balance(base_acct) == 0:
-                    txid = pair.token0.wrap(key, deposit_amount = dex.balance(key.public_key) // 2, token_account = base_acct)
-                    print('transferred into base, txid =', txid)
-                else:
-                    txid = pair.token0.wrap(key, token_account = base_acct)
-                    print('wrapped base, txid = ', txid)
-            else:
-                print('base balance nonzero, not transferring')
+            #if base_balance != 0:
+            #    pair.token0.unwrap(key, token_account = base_acct)
+            #if base_balance == 0:
+            #    #txid = dex.transfer(key, base_acct, dex.balance(key.public_key) // 2)
+            #    if dex.balance(base_acct) == 0:
+            #        txid = pair.token0.wrap(key, deposit_amount = dex.balance(key.public_key) // 2, token_account = base_acct)
+            #        print('transferred into base, txid =', txid)
+            #    else:
+            #        txid = pair.token0.wrap(key, token_account = base_acct)
+            #        print('wrapped base, txid =', txid)
+            #    base_balance = pair.token0.balance(base_acct)
+            #else:
+            #    print('base balance nonzero, not transferring')
 
-
-            await pair.pump()
+            async for pair, ts, slot, price0, price1 in pair.pump():
+                if quote_balance == 0:
+                    txid = await pair.atrade_0to1(key, base_balance // 2, price1)
+                    base_balance = pair.token0.balance(base_acct)
+                    quote_balance = pair.token1.balance(quote_acct)
+                    print('performed a trade, txid =', txid, pair.db.token0.symbol, '=', base_balance, pair.db.token1.symbol, '=', quote_balance)
+                print(ts, slot, str(pair.db), price0, '-', price1)
 
 asyncio.run(main())

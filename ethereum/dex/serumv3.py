@@ -1,9 +1,10 @@
+from solana.exceptions import SolanaRpcException
 from solana.publickey import b58decode, b58encode, PublicKey
 from solana.rpc.websocket_api import connect as WSClient
 import websockets.legacy.client
 from solana.rpc.api import Client, types as solana_types
 from solana.rpc.async_api import AsyncClient
-from solana.rpc.core import RPCException
+from solana.rpc.core import RPCException, UnconfirmedTxError
 from solana.transaction import AccountMeta, Transaction, TransactionInstruction
 import solana.system_program as system_program
 from spl.token.client import Token as TokenClient
@@ -61,10 +62,10 @@ def sync_native(pubkey, program_id = TOKEN_PROGRAM_ID) -> TransactionInstruction
     )
 
 class dex:
-    def __init__(self, programid = PROGRAM_ID, name = 'Serum V3'):
-        self.db = db.dex(programid)
+    def __init__(self, program_id = PROGRAM_ID, name = 'Serum V3'):
+        self.db = db.dex(program_id)
         if not self.db:
-            self.db = db.dex.ensure(programid, name)
+            self.db = db.dex.ensure(program_id, name)
     def tokens(self):
         for token_mint in pyserum.connection.get_token_mints():
             yield token(token_mint.address._key)
@@ -119,6 +120,11 @@ class token:
             symbol = TOKEN_NAMES_BY_ADDRESSES.get(addr, b2hex(addr))
             decimals = pyserum.utils.get_mint_decimals(solana, b2hex(addr))
             self.db = db.token.ensure(addr, symbol, decimals)
+    '''the owner of the account can be gotten from the spl library's get_account_info function'''
+    def owner(self, account):
+        client = TokenClient(solana, program_id=TOKEN_PROGRAM_ID, pubkey=PublicKey(self.db.addr), payer=None)
+        token_info = client.get_account_info(PublicKey(account))
+        return str(token_info.owner)
     def balance(self, account):
         value = solana.get_token_account_balance(account)['result']['value']
         # value['decimals']
@@ -126,24 +132,38 @@ class token:
     def account(self, keypair):
         accts = solana.get_token_accounts_by_owner(keypair.public_key, solana_types.TokenAccountOpts(mint=str(self.db.addr)), commitment='processed')['result']['value']
         if len(accts) == 0:
-            client = TokenClient(solana, program_id=PublicKey(self.dex.db.addr), pubkey=PublicKey(self.db.addr), payer=keypair)
+            client = TokenClient(solana, program_id=PublicKey(TOKEN_PROGRAM_ID), pubkey=PublicKey(self.db.addr), payer=keypair)
             print(f'Creating {self.db.symbol} account for {keypair.public_key} ...')
             while True:
                 try:
                     acct = client.create_associated_token_account(keypair.public_key)
                     break
                 except RPCException as exc:
-                    data = exception.args[0]['data']
+                    data = exc.args[0]['data']
                     if data['unitsConsumed'] == 0:
                         if data['err'] == 'BlockhashNotFound':
                             continue
+                        elif 'already in use' in str(data['err']):
+                            break
                     raise
+                except UnconfirmedTxError:
+                    print('no confirmation yet, continuing anyway')
+                    break
             print(f'Created {accts}.')
             return acct
         else:
             return accts[0]['pubkey']
 
 class wrapped_sol(token):
+    def balance(self, account):
+        owner_balance = self.dex.balance(self.owner(account))
+        solana_balance = self.dex.balance(account)
+        if solana_balance != 0:
+            print('Warning:', solana_balance, 'unwrapped lamports are held by', account)
+        wrapped_balance = super().balance(account)
+        if wrapped_balance != 0:
+            print('Warning:', wrapped_balance, 'lamports are already wrapped in', account)
+        return owner_balance + solana_balance + wrapped_balance
     def wrap(self, keypair, deposit_amount = None, token_account = None):
         instructions = []
 
@@ -168,6 +188,7 @@ class wrapped_sol(token):
         instructions.append(
             spl.token.instructions.close_account(spl.token.instructions.CloseAccountParams(
                 program_id = PublicKey(TOKEN_PROGRAM_ID),
+                owner = keypair.public_key,
                 account = PublicKey(token_account),
                 dest = PublicKey(withdraw_to_addr)
             ))
@@ -189,7 +210,7 @@ class pair:
         if type(dbpair_or_addr) is not db.Table.Row:
             self.db = db.pair(addr)
             if not self.db:
-                self.market = pyserum.market.Market.load(solana, addr)
+                self.market = pyserum.market.Market.load(solana, PublicKey(addr))
                 market_state = self.market.state
                 token0addr = self.market.state.base_mint()._key
                 token1addr = self.market.state.quote_mint()._key
@@ -204,7 +225,7 @@ class pair:
         if self.market is None:
             bytes_data = pyserum.utils.load_bytes_data(str(self.db.addr), solana)
             parsed_market = pyserum.market.state.MarketState._make_parsed_market(bytes_data)
-            market_state = pyserum.market.state.MarketState(parsed_market, PROGRAM_ID, self.db.token0.decimals, self.db.token1.decimals)
+            market_state = pyserum.market.state.MarketState(parsed_market, PublicKey(str(self.dex.db.addr)), self.db.token0.decimals, self.db.token1.decimals)
             self.market = pyserum.market.Market(solana, market_state)
             self.token0 = token(self.dex, self.db.token0)
             self.token1 = token(self.dex, self.db.token1)
@@ -217,17 +238,20 @@ class pair:
         # this seems to basically mean parsing the binary parameters passed to the programs
 
 
-    async def trade_0to1(self, keypair, amt, post_only = True, immediate_or_cancel = False):
-        return self.trade(keypair, False, amt, post_only, immediate_or_cancel)
-    async def trade_1to0(self, keypair, amt, post_only = True, immediate_or_cancel = False):
-        return self.trade(keypair, True, amt, post_only, immediate_or_cancel)
+    async def atrade_0to1(self, keypair, amt, price, post_only = True, immediate_or_cancel = False, token_account = None):
+        return await self.atrade(keypair, False, amt, price, post_only, immediate_or_cancel, token_account)
+    async def atrade_1to0(self, keypair, amt, price, post_only = True, immediate_or_cancel = False, token_account = None):
+        return await self.atrade(keypair, True, amt, price, post_only, immediate_or_cancel, token_account)
 
-    async def trade(self, keypair, trade_1to0 : bool, amt, post_only = True, immediate_or_cancel = False):
-        pubkey = keypair.public_key
-        if sell_quote_buy_bid:
+    async def atrade(self, keypair, trade_1to0 : bool, amt, price, post_only = True, immediate_or_cancel = False, token_account = None):
+        if trade_1to0:
             side = pyserum.enums.Side.SELL
+            if token_account is None:
+                token_account = PublicKey(self.token1.account(keypair))
         else:
             side = pyserum.enums.Side.BUY
+            if token_account is None:
+                token_account = PublicKey(self.token0.account(keypair))
         if immediate_or_cancel:
             if post_only:
                 raise NotImplementedError('IOC post_only')
@@ -236,6 +260,19 @@ class pair:
             type = pyserum.enums.OrderType.POST_ONLY
         else:
             type = pyserum.enums.OrderType.LIMIT
+        while True:
+            try:
+                return await self.amarket.place_order(
+                    owner = keypair, 
+                    payer = token_account,
+                    side = side,
+                    limit_price = price,
+                    max_quantity = amt,
+                    order_type = type,
+                )
+            except SolanaRpcException as e:
+                print('retrying, got exception:', e)
+        #raise NotImplementedError('oops did not finish trade code yet!')
 
     async def pump(self, commitment = 'processed'):
         pair = self
@@ -307,13 +344,15 @@ class pair:
                         now = time.time()
                         if mark_slot is None or now - mark_now > 60:
                             mark_slot = bids.slot
-                            mark_blocktime = solana.get_block_time(bids.slot)['result']
+                            mark_blocktime = solana.get_block_time(bids.slot)
+                            mark_blocktime = mark_blocktime['result']
                             mark_now = now
                             ts = mark_blocktime
                         else:
                             ts = int(now - mark_now + mark_blocktime)
                         ts = datetime.datetime.utcfromtimestamp(ts).isoformat()
-                        print(ts, bids.slot, str(self.db), price[0], '-', price[1])
+                        yield (self, ts, bids.slot, price[0], price[1])
+                        #print(ts, bids.slot, str(self.db), price[0], '-', price[1])
                         last_price = price
 
 
