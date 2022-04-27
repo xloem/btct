@@ -15,7 +15,7 @@ import spl
 import pyserum
 import pyserum.connection
 
-import asyncio, base64, collections, datetime, time, json
+import asyncio, base64, collections, datetime, json, requests, time
 
 import db
 def hex2b(hex):
@@ -123,21 +123,28 @@ class token:
     @staticmethod
     def addr2symbol(addr):
         saddr = str(addr)
+        symbol = None
         symbol = TOKEN_NAMES_BY_ADDRESSES.get(addr)
         if symbol is None:
             resp = requests.get('https://github.com/solana-labs/token-list/raw/main/src/tokens/solana.tokenlist.json', stream = True)
             baddr = saddr.encode()
+            lines = []
+            found = False
+            START_LINE = b'    {'
+            END_LINE = b'    }'
             for line in resp.iter_lines():
                 lines.append(line)
                 if baddr in line:
                     found = True
-                elif line == b'    {':
+                elif line == START_LINE:
                     found = False
                     lines = lines[-1:]
-                elif line == b'    },':
+                elif line.startswith(END_LINE):
+                    lines[-1] = END_LINE
                     if found:
                         break
             if found:
+                token_data = json.loads(b''.join(lines).decode())
                 symbol = token_data['symbol']
         if symbol is None:
             symbol = b2hex(addr)
@@ -277,7 +284,7 @@ class pair:
             if token_account is None:
                 token_account = PublicKey(self.token0.account(keypair))
             if amt < self.amarket.state.base_lot_size():
-                raise Exception('minimum lot size is ' + str(self.amarket.state.base_lot_size())
+                raise Exception('minimum lot size is ' + str(self.amarket.state.base_lot_size()))
             amt /= 10**self.db.token0.decimals
         if immediate_or_cancel:
             if post_only:
