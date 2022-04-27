@@ -32,7 +32,8 @@ db.b2hex = b2hex
 db.hex2b = hex2b
 
 # serum runs a faster api that likely gives more requests
-API = 'solana-api.projectserum.com'
+#API = 'solana-api.projectserum.com'
+API = 'api.mainnet-beta.solana.com'
 solana = Client(f'https://{API}')
 asolana = AsyncClient(f'https://{API}')
 if API == 'solana-api.projectserum.com':
@@ -70,17 +71,24 @@ class dex:
         for token_mint in pyserum.connection.get_token_mints():
             yield token(token_mint.address._key)
     def pairs(self):
-        for live_market in pyserum.connection.get_live_markets():
-            name = live_market.name
-            #if name.startswith('so') or name.startswith('st'):
-            #    name = name[2:]
-            base_name, quote_name = name.split('/')
-            p = pair(self, live_market.address)
-            if p.db.token0.symbol != base_name:
-                p.db.token0.symbol = base_name
-            if p.db.token1.symbol != quote_name:
-                p.db.token1.symbol = quote_name
-            yield p
+        live_markets = {market.address for market in pyserum.connection.get_live_markets()}
+        for _pair in db.pair(dex=self.db.addr):
+            live_markets.discard(str(_pair.addr))
+            yield pair(self, _pair)
+        for live_market in live_markets:
+            yield pair(self, live_market)
+    async def awatch_pairs(self):
+        pairs = set()
+        async with WSClient(WS_API) as ws:
+            await ws.program_subscribe(str(self.db.addr))
+            ws.recv()
+            while True:
+                event = await websockets.legacy.client.WebSocketClientProtocol.recv(ws)
+                event = json.loads(event)
+                addr = event['params']['result']['value']['pubkey']
+                if addr not in pairs:
+                    pairs.add(addr)
+                    yield pair(self, addr)
 
     #def pair(self, token0, token1):
     #    tokens=[token0,token1]
@@ -267,6 +275,11 @@ class pair:
 
         # this seems to basically mean parsing the binary parameters passed to the programs
 
+
+    def mintrade0(self):
+        return self.amarket.state.base_lot_size()
+    def mintrade1(self):
+        return self.amarket.state.quote_lot_size()
 
     async def atrade_0to1(self, keypair, amt, price, post_only = True, immediate_or_cancel = False, token_account = None):
         return await self.atrade(keypair, False, amt, price, post_only, immediate_or_cancel, token_account)
