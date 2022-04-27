@@ -117,10 +117,33 @@ class token:
         if not self.db:
             self.db = db.token(addr)
         if not self.db:
-            symbol = TOKEN_NAMES_BY_ADDRESSES.get(addr, b2hex(addr))
+            symbol = token.addr2symbol(addr)
             decimals = pyserum.utils.get_mint_decimals(solana, b2hex(addr))
             self.db = db.token.ensure(addr, symbol, decimals)
-    '''the owner of the account can be gotten from the spl library's get_account_info function'''
+    @staticmethod
+    def addr2symbol(addr):
+        saddr = str(addr)
+        symbol = TOKEN_NAMES_BY_ADDRESSES.get(addr)
+        if symbol is None:
+            resp = requests.get('https://github.com/solana-labs/token-list/raw/main/src/tokens/solana.tokenlist.json', stream = True)
+            baddr = saddr.encode()
+            for line in resp.iter_lines():
+                lines.append(line)
+                if baddr in line:
+                    found = True
+                elif line == b'    {':
+                    found = False
+                    lines = lines[-1:]
+                elif line == b'    },':
+                    if found:
+                        break
+            if found:
+                symbol = token_data['symbol']
+        if symbol is None:
+            symbol = b2hex(addr)
+        return symbol
+
+
     def owner(self, account):
         client = TokenClient(solana, program_id=TOKEN_PROGRAM_ID, pubkey=PublicKey(self.db.addr), payer=None)
         token_info = client.get_account_info(PublicKey(account))
@@ -245,13 +268,17 @@ class pair:
 
     async def atrade(self, keypair, trade_1to0 : bool, amt, price, post_only = True, immediate_or_cancel = False, token_account = None):
         if trade_1to0:
-            side = pyserum.enums.Side.SELL
-            if token_account is None:
-                token_account = PublicKey(self.token1.account(keypair))
-        else:
             side = pyserum.enums.Side.BUY
             if token_account is None:
+                token_account = PublicKey(self.token1.account(keypair))
+            raise Exception('have not set amt yet for buy')
+        else:
+            side = pyserum.enums.Side.SELL
+            if token_account is None:
                 token_account = PublicKey(self.token0.account(keypair))
+            if amt < self.amarket.state.base_lot_size():
+                raise Exception('minimum lot size is ' + str(self.amarket.state.base_lot_size())
+            amt /= 10**self.db.token0.decimals
         if immediate_or_cancel:
             if post_only:
                 raise NotImplementedError('IOC post_only')
@@ -271,7 +298,12 @@ class pair:
                     order_type = type,
                 )
             except SolanaRpcException as e:
-                print('retrying, got exception:', e)
+                print('retrying, got exception:', repr(e.args))
+            except RPCException as e:
+                if e.args[0]['data']['err'] == 'BlockhashNotFound':
+                    print('retrying, got exception:', repr(e.args))
+                else:
+                    raise
         #raise NotImplementedError('oops did not finish trade code yet!')
 
     async def pump(self, commitment = 'processed'):
@@ -344,8 +376,14 @@ class pair:
                         now = time.time()
                         if mark_slot is None or now - mark_now > 60:
                             mark_slot = bids.slot
-                            mark_blocktime = solana.get_block_time(bids.slot)
-                            mark_blocktime = mark_blocktime['result']
+                            while True:
+                                mark_blocktime = solana.get_block_time(bids.slot)
+                                if 'error' in mark_blocktime:
+                                    if mark_blocktime['error']['code'] == -32004:
+                                        continue
+                                    raise Exception(mark_blocktime['error'])
+                                mark_blocktime = mark_blocktime['result']
+                                break
                             mark_now = now
                             ts = mark_blocktime
                         else:

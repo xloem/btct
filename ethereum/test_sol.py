@@ -40,11 +40,11 @@ async def main():
             #    print('base balance nonzero, not transferring')
 
             async for pair, ts, slot, price0, price1 in pair.pump():
+                print(ts, slot, str(pair.db), price0, '-', price1)
                 if quote_balance == 0:
-                    txid = await pair.atrade_0to1(key, base_balance // 2, price1)
+                    txid = await pair.atrade_0to1(key, base_balance // price1 // 2, price1)
                     base_balance = pair.token0.balance(base_acct)
                     quote_balance = pair.token1.balance(quote_acct)
                     print('performed a trade, txid =', txid, pair.db.token0.symbol, '=', base_balance, pair.db.token1.symbol, '=', quote_balance)
-                print(ts, slot, str(pair.db), price0, '-', price1)
 
 asyncio.run(main())
