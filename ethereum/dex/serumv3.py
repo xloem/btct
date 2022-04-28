@@ -405,7 +405,7 @@ class pair:
                 if event in (bids, asks) and bids.slot == asks.slot:
                     bids_l2 = bids.data.get_l2(1)
                     asks_l2 = asks.data.get_l2(1)
-                    price = (bids_l2[0].price if len(bids_l2) else None, asks_l2(1)[0].price if len(asks_l2) else None)
+                    price = (bids_l2[0].price if len(bids_l2) else None, asks_l2[0].price if len(asks_l2) else None)
                     if price != last_price:
                         now = time.time()
                         if mark_slot is None or now - mark_now > 60:
