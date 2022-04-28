@@ -13,10 +13,11 @@ print('starting ..')
 
 async def main():
     dex = serumv3.dex()
-    print('main account:', key.public_key, 'balance =', dex.balance(key.public_key))
-    for pair in dex.pairs():
-        print(pair.db, pair.db.token0.symbol, pair.db.token1.symbol)
-        if 'SOL' in pair.db.token0.symbol:
+    solana_balance = dex.balance(key.public_key)
+    print('main account:', key.public_key, 'balance =', solana_balance)
+    async for pair in dex.awatch_pairs():
+        print(pair.db, pair.mintrade0() / 10**pair.token0.db.decimals, pair.db.token0.symbol, pair.mintrade1() / 10**pair.token1.db.decimals, pair.db.token1.symbol)
+        if isinstance(pair.token0, serumv3.wrapped_sol) and pair.mintrade0() < solana_balance / 2:
             print('market = ', pair.db.addr)
             base_acct = pair.token0.account(key)
             base_balance = pair.token0.balance(base_acct)
