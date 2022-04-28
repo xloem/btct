@@ -195,9 +195,9 @@ class token:
                             break
                     raise
                 except UnconfirmedTxError:
-                    print('no confirmation yet, continuing anyway')
-                    break
-            print(f'Created {accts}.')
+                    print('no confirmation yet ...')
+                    return self.account(keypair)
+            print(f'Created {acct}.')
             return acct
         else:
             return accts[0]['pubkey']
