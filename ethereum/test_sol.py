@@ -17,7 +17,8 @@ async def main():
     print('main account:', key.public_key, 'balance =', solana_balance, 'lamports', solana_balance / 1000000000, 'sol')
     for pair in dex.pairs():
         print(pair.db, pair.mintrade0() / 10**pair.token0.db.decimals, pair.db.token0.symbol, pair.mintrade1() / 10**pair.token1.db.decimals, pair.db.token1.symbol)
-        if (isinstance(pair.token0, serumv3.wrapped_sol) and pair.mintrade0() < solana_balance / 2) or (isinstance(pair.token1, serumv3.wrapped_sol) and pair.mintrade1() < solana_balance / 2):
+        #if (isinstance(pair.token0, serumv3.wrapped_sol) and pair.mintrade0() < solana_balance / 2) or (isinstance(pair.token1, serumv3.wrapped_sol) and pair.mintrade1() < solana_balance / 2):
+        if isinstance(pair.token0, serumv3.wrapped_sol) or isinstance(pair.token1, serumv3.wrapped_sol):
             print('market = ', pair.db.addr)
             base_acct = pair.token0.account(key)
             base_balance = pair.token0.balance(base_acct)
@@ -44,7 +45,7 @@ async def main():
                 print(ts, slot, str(pair.db), price0, '-', price1)
                 if quote_balance == 0 or base_balance == 0:
                     if quote_balance == 0:
-                        txid = await pair.atrade_0to1(key, base_balance // price1 // 2, price1)
+                        txid = await pair.atrade_0to1(key, base_balance // 2, price1)
                     elif base_balance == 0:
                         txid = await pair.atrade_1to0(key, quote_balance // 2, price1)
                     base_balance = pair.token0.balance(base_acct)
