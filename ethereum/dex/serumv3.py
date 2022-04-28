@@ -63,7 +63,7 @@ def sync_native(pubkey, program_id = TOKEN_PROGRAM_ID) -> TransactionInstruction
     )
 
 class dex:
-    def __init__(self, program_id = PROGRAM_ID, name = 'Serum V3'):
+    def __init__(self, program_id = PROGRAM_ID, name = 'SerumV3'):
         self.db = db.dex(program_id)
         if not self.db:
             self.db = db.dex.ensure(program_id, name)
@@ -79,16 +79,23 @@ class dex:
             yield pair(self, live_market)
     async def awatch_pairs(self):
         pairs = set()
+        #for _pair in db.pair(dex=self.db.addr):
+        #    live_markets.discard(str(_pair.addr))
+        #    pairs.add(str(_pair.addr))
+        #    yield pair(self, _pair)
         async with WSClient(WS_API) as ws:
             await ws.program_subscribe(str(self.db.addr))
-            ws.recv()
+            subscr_resp = await ws.recv()
             while True:
                 event = await websockets.legacy.client.WebSocketClientProtocol.recv(ws)
                 event = json.loads(event)
                 addr = event['params']['result']['value']['pubkey']
                 if addr not in pairs:
                     pairs.add(addr)
-                    yield pair(self, addr)
+                    try:
+                        yield pair(self, addr)
+                    except:
+                        continue
 
     #def pair(self, token0, token1):
     #    tokens=[token0,token1]
@@ -125,8 +132,10 @@ class token:
         if not self.db:
             self.db = db.token(addr)
         if not self.db:
-            symbol = token.addr2symbol(addr)
-            decimals = pyserum.utils.get_mint_decimals(solana, b2hex(addr))
+            #import pdb; pdb.set_trace()
+            saddr = b2hex(addr)
+            symbol = token.addr2symbol(saddr)
+            decimals = pyserum.utils.get_mint_decimals(solana, b2hex(saddr))
             self.db = db.token.ensure(addr, symbol, decimals)
     @staticmethod
     def addr2symbol(addr):
@@ -155,7 +164,8 @@ class token:
                 token_data = json.loads(b''.join(lines).decode())
                 symbol = token_data['symbol']
         if symbol is None:
-            symbol = b2hex(addr)
+            import pdb; pdb.set_trace()
+            symbol = saddr
         return symbol
 
 
