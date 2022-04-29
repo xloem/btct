@@ -15,6 +15,8 @@ import spl
 import pyserum
 import pyserum.connection
 
+import pyserum.open_orders_account, pyserum._layouts.open_orders
+
 import asyncio, base64, collections, datetime, json, requests, time
 
 import db
@@ -61,6 +63,7 @@ def sync_native(pubkey, program_id = TOKEN_PROGRAM_ID) -> TransactionInstruction
         program_id = program_id,
         data = data
     )
+
 
 class dex:
     def __init__(self, program_id = PROGRAM_ID, name = 'SerumV3'):
@@ -110,6 +113,23 @@ class dex:
        ]
        txn = Transaction().add(*instructions)
        return solana.send_transaction(txn, keypair)['result']
+
+    def open_orders_accounts_for_owner(self, addr, commitment = 'processed'):
+        resp = solana.get_program_accounts(
+            str(self.db.addr),
+            commitment,
+            'base64',
+            None,
+            pyserum._layouts.open_orders.OPEN_ORDERS_LAYOUT.sizeof(),
+            [
+                solana_types.MemcmpOpts(
+                    offset=5 + 8 + 32, # padding + account flag + market pubkey
+                    bytes=str(addr),
+                )
+            ]
+        )
+        # result has .address, .market, .base_token_total, .quote_token_total
+        return pyserum.open_orders_account.OpenOrdersAccount._process_get_program_accounts_resp(resp)
 
 
 class token:
