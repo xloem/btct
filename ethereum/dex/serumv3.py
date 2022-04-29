@@ -84,6 +84,7 @@ class dex:
         #    pairs.add(str(_pair.addr))
         #    yield pair(self, _pair)
         async with WSClient(WS_API) as ws:
+            ws.max_size = 1024*1024*64
             await ws.program_subscribe(str(self.db.addr))
             subscr_resp = await ws.recv()
             while True:
@@ -389,6 +390,7 @@ class pair:
                 Subscr(ws, 'request_queue', pyserum.market.market.decode_request_queue) as requests,
                 Subscr(ws, 'event_queue', pyserum.market.market.decode_event_queue) as events
             ):
+            ws.max_size = 1024*1024*64
 
             # fill enough initial data to start forming orderbooks
             while await Subscr.next() not in (bids, asks):
